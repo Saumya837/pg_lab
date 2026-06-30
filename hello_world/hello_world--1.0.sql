@@ -1,0 +1,9 @@
+CREATE function hello_world()
+RETURNS text
+AS 'MODULE_PATHNAME', 'hello_world'
+LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION hello_name(name text)
+RETURNS text
+AS 'MODULE_PATHNAME', 'hello_name'
+LANGUAGE C IMMUTABLE STRICT;
