@@ -1,0 +1,9 @@
+/Users/saumyakumar/Desktop/pg_lab/target/debug/deps/postgres_types-44ed9e47299e9310.d: /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/lib.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/pg_lsn.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/private.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/special.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/type_gen.rs
+
+/Users/saumyakumar/Desktop/pg_lab/target/debug/deps/libpostgres_types-44ed9e47299e9310.rmeta: /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/lib.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/pg_lsn.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/private.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/special.rs /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/type_gen.rs
+
+/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/lib.rs:
+/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/pg_lsn.rs:
+/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/private.rs:
+/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/special.rs:
+/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/postgres-types-0.2.14/src/type_gen.rs:
