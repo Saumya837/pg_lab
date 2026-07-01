@@ -12,6 +12,20 @@ fn pg_lab_version() -> &'static str {
     "0.1.0"
 }
 
+#[pg_extern]
+fn pg_greet(name: Option<String>) -> Option<String>
+{
+    match name {
+        Some(name) => Some(format!("Hello, {}!", name)),
+        None => None,
+    }
+}
+
+#[pg_extern]
+fn pg_add(a: Option<i32>, b: Option<i32>) -> Option<i32> {
+    Some(a? + b?)
+}
+
 #[cfg(any(test, feature = "pg_test"))]
 #[pg_schema]
 mod tests {
