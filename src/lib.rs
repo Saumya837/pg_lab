@@ -26,6 +26,14 @@ fn pg_add(a: Option<i32>, b: Option<i32>) -> Option<i32> {
     Some(a? + b?)
 }
 
+#[pg_extern]
+fn pg_div(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match b{
+        b if b == Some(0.0) => error!("Division by zero is not allowed"),
+        _ => Some(a? / b?)
+    } 
+}
+
 #[cfg(any(test, feature = "pg_test"))]
 #[pg_schema]
 mod tests {
