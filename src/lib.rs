@@ -34,6 +34,17 @@ fn pg_div(a: Option<f64>, b: Option<f64>) -> Option<f64> {
     } 
 }
 
+#[pg_extern]
+fn pg_lab_repeat(input_string: Option<String>, freq: Option<i32>) -> Option<String> {
+    match (input_string, freq){
+        (None, None) => error!("Please provide some input string and frequency"),
+        (None, _) => error!("Please provide some input string"),
+        (_, None) => error!("Please provide some frequency"),
+        (_, Some(f)) if f <= 0 => error!("Frequency must be a positive integer"),
+       (Some(input_string), Some(freq)) => Some(input_string.repeat(freq as usize))
+    }
+}
+
 #[cfg(any(test, feature = "pg_test"))]
 #[pg_schema]
 mod tests {
