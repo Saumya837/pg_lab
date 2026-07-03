@@ -85,5 +85,5 @@
 /Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-0.6.4/src/../examples/class_with_lifetime.rs:
 
 # env-dep:CARGO_PKG_VERSION=0.6.4
-# env-dep:MACOSX_DEPLOYMENT_TARGET=26.5.1
+# env-dep:MACOSX_DEPLOYMENT_TARGET
 # env-dep:UNSAFE_OBJC2_ALLOW_CLASS_OVERRIDE

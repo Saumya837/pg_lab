@@ -1,4 +1,5 @@
 use pgrx::prelude::*;
+use pgrx::StringInfo;
 
 #[pg_extern]
 pub fn pg_lab_version() -> &'static str {
@@ -21,11 +22,20 @@ pub fn pg_greet(name: Option<String>) -> Option<String>
 
 #[pg_extern]
 pub fn pg_lab_repeat(input_string: Option<String>, freq: Option<i32>) -> Option<String> {
-    match (input_string, freq){
-        (None, None) => error!("Please provide some input string and frequency"),
-        (None, _) => error!("Please provide some input string"),
-        (_, None) => error!("Please provide some frequency"),
-        (_, Some(f)) if f <= 0 => error!("Frequency must be a positive integer"),
-       (Some(input_string), Some(freq)) => Some(input_string.repeat(freq as usize))
+    let input_string = match input_string{
+                                    Some(s) => s,
+                                    None => error!("Please provide some input string")
+                                };
+    let freq = match freq{
+                            Some(f) => f,
+                            None => error!("Please provide some frequency")
+    };
+
+    let mut s = StringInfo::new();
+    for _ in 0..freq {
+                s.push_str(&input_string);
     }
+    Some(s.to_string())
 }
+
+
