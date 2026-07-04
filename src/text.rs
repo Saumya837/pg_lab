@@ -38,4 +38,19 @@ pub fn pg_lab_repeat(input_string: Option<String>, freq: Option<i32>) -> Option<
     Some(s.to_string())
 }
 
+#[pg_extern]
+pub fn pg_lab_reverse(input_string: Option<String>) -> Option<String> {
+    let input_string = match input_string{
+        Some(s) => s,
+        None => error!("Please provide some input string")
+    };
+
+    let mut s = StringInfo::new();
+    for c in input_string.chars().rev(){
+        s.push(c);
+    }
+    Some(s.to_string())
+}
+
+
 
