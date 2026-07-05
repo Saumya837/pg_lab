@@ -52,6 +52,21 @@ pub fn pg_lab_reverse(input_string: Option<String>) -> Option<String> {
     Some(s.to_string())
 }
 
+#[pg_extern]
+fn pg_lab_split_name(name: Option<String>) -> TableIterator<'static, (name!(first, String), name!(last, Option<String>))> {
+
+    let name  = match name{
+        Some(n) => n,
+        None => error!("Please provide some name")
+    };
+
+    let mut parts = name.trim().splitn(2, ' ');
+    let first = parts.next().unwrap_or("").to_string();
+    let last = parts.next().map(|s| s.to_string());
+
+    TableIterator::once((first, last))
+}
+
 
 
 
