@@ -16,3 +16,14 @@ pub fn pg_div(a: Option<f64>, b: Option<f64>) -> Option<f64> {
         _ => Some(a? / b?)
     } 
 }
+
+#[pg_extern]
+pub fn pg_lab_clamp(value: AnyNumeric, min: AnyNumeric, max: AnyNumeric) -> AnyNumeric{
+    if value > max{
+        max
+    }else if value < min{
+        min
+    }else{
+        value 
+    }
+}

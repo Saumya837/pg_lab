@@ -121,4 +121,3 @@ fn pg_lab_extract_value(input: JsonB, key: String) -> Option<String> {
 
 
 
-
