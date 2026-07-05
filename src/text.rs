@@ -86,25 +86,25 @@ fn pg_lab_jsonb_keys(input: JsonB) -> Vec<String>{
 }
 
 
-// #[pg_extern]
-// fn pg_lab_jsonb_values(input: JsonB) -> Vec<String>{
-//     let value: Value = input.0;
-//     let mut result = Vec::new();
+#[pg_extern]
+fn pg_lab_jsonb_values(input: JsonB) -> Vec<String>{
+    let value: Value = input.0;
+    let mut result = Vec::new();
 
-//     match value{
-//         Value::Object(map) => {
-//             for val in map.values(){
-//                 let s = match val{
-//                     Value::String(s) => s.clone(),
-//                     other => other.to_string()
-//                 };
-//                 result.push(s);
-//             }
-//         }
-//         _ => {}
-//     }
-//     result
-// }
+    match value{
+        Value::Object(map) => {
+            for val in map.values(){
+                let s = match val{
+                    Value::String(s) => s.clone(),
+                    other => other.to_string()
+                };
+                result.push(s);
+            }
+        }
+        _ => {}
+    }
+    result
+}
 
 
 
