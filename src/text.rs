@@ -106,6 +106,18 @@ fn pg_lab_jsonb_values(input: JsonB) -> Vec<String>{
     result
 }
 
+#[pg_extern]
+fn pg_lab_extract_value(input: JsonB, key: String) -> Option<String> {
+    let value = input.0;
+    match value.get(&key){
+        Some(Value::String(s)) => Some(s.clone()),
+        Some(other) => Some(other.to_string()),
+        None => None,
+    }
+}
+
+
+
 
 
 
