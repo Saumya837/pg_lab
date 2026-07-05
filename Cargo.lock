@@ -947,6 +947,7 @@ version = "0.1.0"
 dependencies = [
  "pgrx",
  "pgrx-tests",
+ "serde_json",
 ]
 
 [[package]]

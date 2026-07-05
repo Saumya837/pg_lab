@@ -1,5 +1,7 @@
 use pgrx::prelude::*;
 use pgrx::StringInfo;
+use pgrx::JsonB;
+use serde_json::Value;
 
 #[pg_extern]
 pub fn pg_lab_version() -> &'static str {
@@ -66,6 +68,43 @@ fn pg_lab_split_name(name: Option<String>) -> TableIterator<'static, (name!(firs
 
     TableIterator::once((first, last))
 }
+
+#[pg_extern]
+fn pg_lab_jsonb_keys(input: JsonB) -> Vec<String>{
+    let value: Value = input.0;
+    let mut result = Vec::new();
+
+    match value{
+        Value::Object(map) => {
+            for key in map.keys(){
+                result.push(key.to_string())
+            }
+        }
+        _ => {}
+    }
+    result
+}
+
+
+// #[pg_extern]
+// fn pg_lab_jsonb_values(input: JsonB) -> Vec<String>{
+//     let value: Value = input.0;
+//     let mut result = Vec::new();
+
+//     match value{
+//         Value::Object(map) => {
+//             for val in map.values(){
+//                 let s = match val{
+//                     Value::String(s) => s.clone(),
+//                     other => other.to_string()
+//                 };
+//                 result.push(s);
+//             }
+//         }
+//         _ => {}
+//     }
+//     result
+// }
 
 
 
