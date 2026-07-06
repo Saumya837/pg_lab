@@ -29,3 +29,4 @@ fn pg_lab_array_max(vals: Array<i32>) -> Option<i64>{
     }
     if has_values { Some(max_val) } else { None }
 }
+
