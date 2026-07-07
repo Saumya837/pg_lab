@@ -1,5 +1,5 @@
-   0.555043625s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint: fingerprint error for pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("pg_lab", ["cdylib"], "/Users/saumyakumar/Desktop/pg_lab/src/lib.rs", Edition2021) }
-   0.555223959s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pg_lab-0686ce77c57a87cc/lib-pg_lab`
+   0.082495666s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint: fingerprint error for pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("pg_lab", ["cdylib"], "/Users/saumyakumar/Desktop/pg_lab/src/lib.rs", Edition2021) }
+   0.082511916s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pg_lab-0686ce77c57a87cc/lib-pg_lab`
 
 Caused by:
     No such file or directory (os error 2)
@@ -22,8 +22,8 @@ Stack backtrace:
   14: std::rt::lang_start::<()>::{closure#0}
   15: std::rt::lang_start_internal
   16: _main
-   0.569928292s  INFO prepare_target{force=false package_id=pgrx v0.19.1 target="pgrx"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx v0.19.1/Check { test: false }/TargetInner { ..: lib_target("pgrx", ["rlib"], "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-0.19.1/src/lib.rs", Edition2024) }
-   0.569935459s  INFO prepare_target{force=false package_id=pgrx v0.19.1 target="pgrx"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-cfae88c320cdfbdd/lib-pgrx`
+   0.085458541s  INFO prepare_target{force=false package_id=pgrx v0.19.1 target="pgrx"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx v0.19.1/Check { test: false }/TargetInner { ..: lib_target("pgrx", ["rlib"], "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-0.19.1/src/lib.rs", Edition2024) }
+   0.085466416s  INFO prepare_target{force=false package_id=pgrx v0.19.1 target="pgrx"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-cfae88c320cdfbdd/lib-pgrx`
 
 Caused by:
     No such file or directory (os error 2)
@@ -47,8 +47,8 @@ Stack backtrace:
   15: std::rt::lang_start::<()>::{closure#0}
   16: std::rt::lang_start_internal
   17: _main
-   0.577517917s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="pgrx_pg_sys"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx-pg-sys v0.19.1/Check { test: false }/TargetInner { ..: lib_target("pgrx_pg_sys", ["lib"], "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-pg-sys-0.19.1/src/lib.rs", Edition2024) }
-   0.577524042s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="pgrx_pg_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-pg-sys-f81854981699278f/lib-pgrx_pg_sys`
+   0.087886625s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="pgrx_pg_sys"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx-pg-sys v0.19.1/Check { test: false }/TargetInner { ..: lib_target("pgrx_pg_sys", ["lib"], "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-pg-sys-0.19.1/src/lib.rs", Edition2024) }
+   0.087892916s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="pgrx_pg_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-pg-sys-f81854981699278f/lib-pgrx_pg_sys`
 
 Caused by:
     No such file or directory (os error 2)
@@ -73,8 +73,8 @@ Stack backtrace:
   16: std::rt::lang_start::<()>::{closure#0}
   17: std::rt::lang_start_internal
   18: _main
-   0.578880417s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="build-script-bindgen"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx-pg-sys v0.19.1/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-bindgen", "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-pg-sys-0.19.1/bindgen.rs", Edition2024) }
-   0.578885250s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="build-script-bindgen"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-pg-sys-e07e85d3f4ed313d/run-build-script-build-script-bindgen`
+   0.088694333s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="build-script-bindgen"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx-pg-sys v0.19.1/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-bindgen", "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-pg-sys-0.19.1/bindgen.rs", Edition2024) }
+   0.088699875s  INFO prepare_target{force=false package_id=pgrx-pg-sys v0.19.1 target="build-script-bindgen"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-pg-sys-e07e85d3f4ed313d/run-build-script-build-script-bindgen`
 
 Caused by:
     No such file or directory (os error 2)
@@ -101,8 +101,8 @@ Stack backtrace:
   18: std::rt::lang_start::<()>::{closure#0}
   19: std::rt::lang_start_internal
   20: _main
-   0.620344000s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint: fingerprint error for pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("pg_lab", ["cdylib"], "/Users/saumyakumar/Desktop/pg_lab/src/lib.rs", Edition2021) }
-   0.620351584s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pg_lab-fda628805548305d/test-lib-pg_lab`
+   0.100937500s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint: fingerprint error for pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("pg_lab", ["cdylib"], "/Users/saumyakumar/Desktop/pg_lab/src/lib.rs", Edition2021) }
+   0.100946041s  INFO prepare_target{force=false package_id=pg_lab v0.1.0 (/Users/saumyakumar/Desktop/pg_lab) target="pg_lab"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pg_lab-fda628805548305d/test-lib-pg_lab`
 
 Caused by:
     No such file or directory (os error 2)
@@ -125,8 +125,8 @@ Stack backtrace:
   14: std::rt::lang_start::<()>::{closure#0}
   15: std::rt::lang_start_internal
   16: _main
-   0.620789042s  INFO prepare_target{force=false package_id=pgrx-tests v0.19.1 target="pgrx_tests"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx-tests v0.19.1/Check { test: false }/TargetInner { ..: lib_target("pgrx_tests", ["lib"], "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-tests-0.19.1/src/lib.rs", Edition2024) }
-   0.620793792s  INFO prepare_target{force=false package_id=pgrx-tests v0.19.1 target="pgrx_tests"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-tests-cb4e42ee282b5f25/lib-pgrx_tests`
+   0.101452375s  INFO prepare_target{force=false package_id=pgrx-tests v0.19.1 target="pgrx_tests"}: cargo::core::compiler::fingerprint: fingerprint error for pgrx-tests v0.19.1/Check { test: false }/TargetInner { ..: lib_target("pgrx_tests", ["lib"], "/Users/saumyakumar/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pgrx-tests-0.19.1/src/lib.rs", Edition2024) }
+   0.101461750s  INFO prepare_target{force=false package_id=pgrx-tests v0.19.1 target="pgrx_tests"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/saumyakumar/Desktop/pg_lab/target/debug/.fingerprint/pgrx-tests-cb4e42ee282b5f25/lib-pgrx_tests`
 
 Caused by:
     No such file or directory (os error 2)

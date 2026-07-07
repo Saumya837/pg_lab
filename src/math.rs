@@ -1,12 +1,12 @@
 use pgrx::prelude::*;
 
 #[pg_extern]
-pub fn pg_add(a: Option<i32>, b: Option<i32>) -> Option<i32> {
+fn pg_add(a: Option<i32>, b: Option<i32>) -> Option<i32> {
     Some(a? + b?)
 }
 
 #[pg_extern]
-pub fn pg_div(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+fn pg_div(a: Option<f64>, b: Option<f64>) -> Option<f64> {
     match b{
         b if b == Some(0.0) => {
             ereport!(ERROR, 
@@ -18,7 +18,7 @@ pub fn pg_div(a: Option<f64>, b: Option<f64>) -> Option<f64> {
 }
 
 #[pg_extern]
-pub fn pg_lab_clamp(value: AnyNumeric, min: AnyNumeric, max: AnyNumeric) -> AnyNumeric{
+fn pg_lab_clamp(value: AnyNumeric, min: AnyNumeric, max: AnyNumeric) -> AnyNumeric{
     if value > max{
         max
     }else if value < min{
@@ -27,3 +27,6 @@ pub fn pg_lab_clamp(value: AnyNumeric, min: AnyNumeric, max: AnyNumeric) -> AnyN
         value 
     }
 }
+
+// SELECT * FROM pg_lab_stats(ARRAY[1,2,3,4,5]);
+
