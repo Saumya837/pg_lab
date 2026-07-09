@@ -133,7 +133,13 @@ fn pg_lab_word_count(input: Option<String>) -> TableIterator< 'static,
     let mut counts: HashMap<String, i32> = HashMap::new();
 
     for word in input.split_whitespace(){
-        *counts.entry(word.to_string()).or_insert(0) += 1;
+        let cleaned: String = word
+                                .chars() 
+                                .filter(|c| c.is_alphabetic())
+                                .collect::<String>()
+                                .to_lowercase();
+
+        *counts.entry(cleaned.to_string()).or_insert(0) += 1;
     } 
 
     let rows:Vec<(String, i32)> = counts
