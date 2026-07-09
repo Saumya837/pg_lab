@@ -1,4 +1,4 @@
-use pgrx::prelude::*;
+use pgrx::{prelude::*, spi::SpiError};
 
 #[pg_extern]
 fn pg_lab_count_users() -> Option<i64> {
@@ -37,4 +37,15 @@ fn pg_lab_table_info(table_name : &str) -> TableIterator<'static,
         });
 
         TableIterator::new(results.into_iter())
+}
+
+#[pg_extern]
+fn pg_lab_try_execute(sql: &str) -> bool {
+    PgTryBuilder::new(|| -> Result<bool, SpiError>{
+        Spi::run(sql)?;
+        Ok(true)
+    })
+    .catch_others(|_| Ok(false))
+    .execute()
+    .unwrap()
 }
