@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use pgrx::prelude::*;
 use pgrx::StringInfo;
 use pgrx::JsonB;
@@ -115,6 +117,34 @@ fn pg_lab_extract_value(input: JsonB, key: String) -> Option<String> {
         None => None,
     }
 }
+
+#[pg_extern]
+fn pg_lab_word_count(input: Option<String>) -> TableIterator< 'static,
+                                                        (
+                                                            name!(word, String),
+                                                            name!(freq, i32)
+                                                        )> 
+{
+    let input = match input{
+                                None => error!("Please provide input"),
+                                Some(s) => s
+                            };
+    
+    let mut counts: HashMap<String, i32> = HashMap::new();
+
+    for word in input.split_whitespace(){
+        *counts.entry(word.to_string()).or_insert(0) += 1;
+    } 
+
+    let rows:Vec<(String, i32)> = counts
+                                .into_iter()
+                                .collect();
+
+    TableIterator::new(rows.into_iter())
+}
+
+
+
 
 
 
