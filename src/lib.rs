@@ -6,3 +6,4 @@ mod math;
 mod iter;
 mod spi;
 mod triggers;
+mod types;
