@@ -1,13 +1,11 @@
+use std::sync::OnceLock;
+
 use pgrx::{prelude::*, spi::SpiError};
 
-#[pg_extern]
-fn pg_lab_count_users() -> Option<i64> {
-    Spi::get_one("SELECT count(*) FROM pg_class").unwrap()
-}
 
 #[pg_extern]
 fn pg_lab_row_count(table_name : &str) -> Option<i64> {
-     let safe_name = Spi::get_one_with_args::<String>(
+    let safe_name = Spi::get_one_with_args::<String>(
         "SELECT quote_ident($1)",
         &[table_name.into()]
     ).unwrap().unwrap();
@@ -48,4 +46,24 @@ fn pg_lab_try_execute(sql: &str) -> bool {
     .catch_others(|_| Ok(false))
     .execute()
     .unwrap()
+}
+
+#[pg_extern]
+fn pg_lab_row_count_cached(table_name: &str) -> Option<i64> {
+    // Step 1: sanitize using cached query
+    let safe_name = Spi::get_one_with_args::<String>(
+         "SELECT quote_ident($1)",
+        &[table_name.into()]
+    ).unwrap().unwrap();
+
+    // Step 2: cache the count query template too
+    static COUNT_QUERY: OnceLock<String> = OnceLock::new();
+    
+    let count_query = COUNT_QUERY.get_or_init(|| {
+        "SELECT count(*) FROM ".to_string()
+    });
+
+    let full_query = format!("{}{}", count_query, safe_name);
+    
+    Spi::get_one::<i64>(&full_query).unwrap()
 }
