@@ -26,3 +26,11 @@ fn complex_mag(a: Complex) -> f64 {
     (a.re * a.re - a.im * a.im).sqrt()
 }
 
+#[pg_extern(immutable, parallel_safe)]
+fn complex_cmp(a: Complex, b: Complex) -> i32 {
+    if a.re < b.re { -1 }
+    else if a.re > b.re { 1 }
+    else if a.im < b.im { -1 }
+    else if a.im > b.im { -1 }
+    else { 0 }
+}
