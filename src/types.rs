@@ -1,4 +1,4 @@
-use pgrx::{PgSqlErrorCode::ERRCODE_SINGLETON_SQL_JSON_ITEM_REQUIRED, prelude::*};
+use pgrx::prelude::*;
 use serde::{Serialize, Deserialize};
 
 #[derive(PostgresType, Copy, Clone, Debug, Serialize, Deserialize)]
@@ -34,3 +34,27 @@ fn complex_cmp(a: Complex, b: Complex) -> i32 {
     else if a.im > b.im { -1 }
     else { 0 }
 }
+
+#[pg_operator(immutable, parallel_safe)]
+fn complex_lt(a: Complex, b: Complex) -> bool{
+    complex_cmp(a, b) < 0
+}
+
+#[pg_operator(immutable, parallel_safe)]
+fn complex_lte(a: Complex, b: Complex) -> bool{
+    complex_cmp(a, b) <= 0
+}
+
+#[pg_operator(immutable, parallel_safe)]
+fn complex_gt(a: Complex, b: Complex) -> bool{
+    complex_cmp(a, b) > 0
+}
+
+#[pg_operator(immutable, parallel_safe)]
+fn complex_gte(a: Complex, b: Complex) -> bool{
+    complex_cmp(a, b) >= 0
+}
+
+
+
+
