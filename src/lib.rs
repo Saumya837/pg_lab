@@ -6,4 +6,4 @@ mod math;
 mod iter;
 mod spi;
 mod triggers;
-mod types;
+mod complex_type;

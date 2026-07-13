@@ -1,9 +1,9 @@
 use pgrx::prelude::*;
 use serde::{Serialize, Deserialize};
 
-#[derive(PostgresType, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(PostgresType, Copy, Clone, Debug, Serialize, Deserialize, pgrx::AggregateName)]
 #[repr(C)]
-struct Complex{
+pub struct Complex{
     re: f64,
     im: f64
 }
@@ -56,5 +56,27 @@ fn complex_gte(a: Complex, b: Complex) -> bool{
 }
 
 
+// #[derive(pgrx::AggregateName)]
+// pub struct ComplexSum{
+//     re: f64,
+//     im: f64
+// }
+
+pub struct ComplexSum;
+
+#[pg_aggregate]
+impl Aggregate<Complex> for ComplexSum {
+    type State = Complex;
+    type Args = Complex;
+
+    const INITIAL_CONDITION: Option<&'static str> = Some(r#"{"re":0.0,"im":0.0}"#);
+
+    #[pgrx(immutable, parallel_safe)]
+    fn state(mut current: Self::State, next: Self::Args, _fcinfo: pg_sys::FunctionCallInfo) -> Self::State {
+      current.re += next.re;
+      current.im += next.im;
+      current
+    }
+}
 
 
