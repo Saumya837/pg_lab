@@ -55,13 +55,6 @@ fn complex_gte(a: Complex, b: Complex) -> bool{
     complex_cmp(a, b) >= 0
 }
 
-
-// #[derive(pgrx::AggregateName)]
-// pub struct ComplexSum{
-//     re: f64,
-//     im: f64
-// }
-
 pub struct ComplexSum;
 
 #[pg_aggregate]
@@ -78,5 +71,7 @@ impl Aggregate<Complex> for ComplexSum {
       current
     }
 }
+
+
 
 
