@@ -22,6 +22,7 @@ fn pg_lab_set_updated_at<'a>(
 fn pg_lab_set_check_valid_salary<'a>(
     trigger: &'a PgTrigger<'a>,
 ) -> Result<Option<PgHeapTuple<'a, AllocatedByRust>>, PgTriggerError> {
+
     let row = trigger
         .new()
         .unwrap()
@@ -32,5 +33,29 @@ fn pg_lab_set_check_valid_salary<'a>(
         error!("Salary Cannot be negative")
     }
         
+    Ok(Some(row))
+}
+
+#[pg_trigger]
+fn pg_lab_convert_name_upper_case<'a>(
+    trigger: &'a PgTrigger<'a>,
+) -> Result<Option<PgHeapTuple<'a, AllocatedByRust>>, PgTriggerError>{
+    let mut row = trigger
+    .new()
+    .unwrap()
+    .into_owned();
+
+    let name: Option<String> = row.get_by_name("name")
+    .unwrap();
+
+    if let Some(name) = name {
+        if let Some(first) = name.chars().next(){
+            if first.is_lowercase(){
+                let capitalized: String = first.to_uppercase().collect::<String>() + &name[first.len_utf8()..];
+                row.set_by_name("name", capitalized).unwrap();
+            }
+        }
+    };
+
     Ok(Some(row))
 }
