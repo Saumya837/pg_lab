@@ -67,3 +67,5 @@ fn pg_lab_row_count_cached(table_name: &str) -> Option<i64> {
     
     Spi::get_one::<i64>(&full_query).unwrap()
 }
+
+

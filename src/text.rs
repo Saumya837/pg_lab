@@ -11,6 +11,34 @@ pub fn pg_lab_version() -> &'static str {
 }
 
 #[pg_extern]
+pub fn pg_lab_formal_greet(name: Option<String>) -> String {
+    let name = match name{
+                            None => return String::new(),
+                            Some(s) => s,
+                        };
+
+    let mut initials = Vec::new();
+
+    for word in name.split_whitespace(){
+       let cleaned: String = word
+                                    .chars()
+                                    .filter(|c| c.is_alphabetic())
+                                    .collect();
+
+        if let Some(first) = cleaned.chars().next() {
+            let capitalized: String = if first.is_lowercase() {
+                first.to_uppercase().collect::<String>() + &cleaned[first.len_utf8()..]
+            } else {
+                cleaned
+            };
+            initials.push(capitalized);
+        }
+    }
+
+    format!("Hello {}", initials.join(" "))
+}
+
+#[pg_extern]
 pub fn pg_lab_hello() -> &'static str {
     "Hello from pg_lab!"
 }
