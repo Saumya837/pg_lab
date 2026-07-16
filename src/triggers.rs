@@ -41,21 +41,38 @@ fn pg_lab_convert_name_upper_case<'a>(
     trigger: &'a PgTrigger<'a>,
 ) -> Result<Option<PgHeapTuple<'a, AllocatedByRust>>, PgTriggerError>{
     let mut row = trigger
-    .new()
-    .unwrap()
-    .into_owned();
+                                                        .new()
+                                                        .unwrap()
+                                                        .into_owned();
 
-    let name: Option<String> = row.get_by_name("name")
-    .unwrap();
+    let name: String = row
+                        .get_by_name("name")
+                        .unwrap()
+                        .unwrap();
+    
+    let mut words = Vec::new();
 
-    if let Some(name) = name {
-        if let Some(first) = name.chars().next(){
-            if first.is_lowercase(){
-                let capitalized: String = first.to_uppercase().collect::<String>() + &name[first.len_utf8()..];
-                row.set_by_name("name", capitalized).unwrap();
+
+    for word in name.split_whitespace(){
+        let cleaned: String = word
+                        .chars()
+                        .filter(|c| c.is_alphabetic())
+                        .collect();
+
+        if let Some(first) = cleaned.chars().next(){
+            let capitalized: String = if first.is_lowercase() {
+                first.to_uppercase().collect::<String>() + &cleaned[first.len_utf8()..]
             }
-        }
-    };
+            else{
+                cleaned
+            };
+            words.push(capitalized);
+        };
+    }
+
+    let res = words.join(" ");
+
+    row.set_by_name("name", res).unwrap();
 
     Ok(Some(row))
 }
