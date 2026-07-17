@@ -28,5 +28,24 @@ fn pg_lab_clamp(value: AnyNumeric, min: AnyNumeric, max: AnyNumeric) -> AnyNumer
     }
 }
 
+#[pg_extern]
+fn pg_lab_celcius_to_farenheight(c: f64) -> f64 {
+    let f = c * (1.8) + 32.0;
+    f
+}
+
+#[pg_extern]
+fn pg_lab_factorial(num: i64) -> Option<i64> {
+    if num < 0 {
+        None
+    } else if num == 0{
+        Some(1)
+    }else{
+        pg_lab_factorial(num - 1).map(|f| num * f)
+    }
+}
+
+
+
 // SELECT * FROM pg_lab_stats(ARRAY[1,2,3,4,5]);
 

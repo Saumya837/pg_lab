@@ -177,6 +177,17 @@ fn pg_lab_word_count(input: Option<String>) -> TableIterator< 'static,
     TableIterator::new(rows.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_count_vowels(s: &str) -> i32{
+    let mut count: i32 = 0;
+    for ch in s.chars(){
+        if matches!(ch.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u'){
+            count += 1;
+        }
+    }
+    count
+}
+
 
 
 
