@@ -188,6 +188,18 @@ fn pg_lab_count_vowels(s: &str) -> i32{
     count
 }
 
+#[pg_extern]
+fn pg_lab_ispalindrome(s: &str) -> bool {
+    let cleaned: String = s
+                            .chars()
+                            .filter(|c| c.is_alphanumeric())
+                            .map(|c| c.to_ascii_lowercase())
+                            .collect();
+
+    let reversed: String = cleaned.chars().rev().collect();
+    cleaned == reversed
+}
+
 
 
 
