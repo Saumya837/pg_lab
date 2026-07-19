@@ -118,3 +118,10 @@ fn pg_lab_enter_log<'a>(
         _ => Ok(trigger.new().map(|t| t.into_owned())),
     }
 }
+
+#[pg_trigger]
+fn pg_lab_avoid_del_active_record<'a>(
+    trigger: &'a PgTrigger<'a>) -> Result<Option<PgHeapTuple<'a, AllocatedByRust>>, PgHeapTupleError> {
+        row.get_by_name("record_status").ok().flatten()
+}
+
