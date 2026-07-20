@@ -69,3 +69,13 @@ fn pg_lab_row_count_cached(table_name: &str) -> Option<i64> {
 }
 
 
+
+#[pg_extern]
+fn pg_lab_table_exists(table_name: &str) ->  bool {
+    Spi::get_one_with_args::<bool>(
+        "SELECT Exists( SELECT 1 from information_schema.tables where table_schema = 'public' and table_name = $1)", &[table_name.into()])
+        .unwrap()
+        .unwrap_or(false)
+}
+
+

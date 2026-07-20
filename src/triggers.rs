@@ -121,7 +121,17 @@ fn pg_lab_enter_log<'a>(
 
 #[pg_trigger]
 fn pg_lab_avoid_del_active_record<'a>(
-    trigger: &'a PgTrigger<'a>) -> Result<Option<PgHeapTuple<'a, AllocatedByRust>>, PgHeapTupleError> {
-        row.get_by_name("record_status").ok().flatten()
+    trigger: &'a PgTrigger<'a>
+) -> Result<Option<PgHeapTuple<'a, AllocatedByRust>>, PgTriggerError> {
+    
+    let row = trigger.old().unwrap().into_owned();
+    
+    let status: Option<String> = row.get_by_name("status").unwrap();
+    
+    if status.as_deref() == Some("active") {
+        error!("Cannot delete active record");
+    }
+    
+    Ok(Some(row))  // allow delete if not active
 }
 
