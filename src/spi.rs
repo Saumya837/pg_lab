@@ -78,4 +78,13 @@ fn pg_lab_table_exists(table_name: &str) ->  bool {
         .unwrap_or(false)
 }
 
+#[pg_extern]
+fn pg_lab_count_tables() -> i64 {
+    Spi::get_one::<i64>(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+    )
+    .unwrap()
+    .unwrap_or(0)
+}
+
 
