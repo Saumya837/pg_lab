@@ -68,12 +68,11 @@ fn pg_lab_row_count_cached(table_name: &str) -> Option<i64> {
     Spi::get_one::<i64>(&full_query).unwrap()
 }
 
-
-
 #[pg_extern]
 fn pg_lab_table_exists(table_name: &str) ->  bool {
+    let query_str = "SELECT Exists(SELECT 1 from information_schema.tables where table_schema = 'public' and table_name = $1)";
     Spi::get_one_with_args::<bool>(
-        "SELECT Exists( SELECT 1 from information_schema.tables where table_schema = 'public' and table_name = $1)", &[table_name.into()])
+       query_str, &[table_name.into()])
         .unwrap()
         .unwrap_or(false)
 }
@@ -86,5 +85,21 @@ fn pg_lab_count_tables() -> i64 {
     .unwrap()
     .unwrap_or(0)
 }
+
+#[pg_extern]
+fn pg_lab_column_exists(table_name: &str, column_name: &str) ->  bool {
+    Spi::get_one_with_args::<bool>(
+        "SELECT Exists(SELECT 1 from information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), column_name.into()])
+        .unwrap()
+        .unwrap_or(false)
+}
+
+#[pg_extern]
+fn pg_lab_count_indexes(table_name: &str) -> i64 {
+    let query_str = "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1";
+    Spi::get_one_with_args::<i64>(
+        query_str, &[table_name.into()]).unwrap().unwrap_or(0)
+}
+
 
 
