@@ -103,3 +103,8 @@ fn pg_lab_count_indexes(table_name: &str) -> i64 {
 
 
 
+
+
+
+
+

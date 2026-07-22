@@ -8,4 +8,3 @@ mod spi;
 mod triggers;
 mod complex_type;
 mod toast_type;
-mod gist_complex;
