@@ -225,7 +225,7 @@ impl BoundingBox {
     //      Wait — this is actually used differently. See CONSISTENT below.
     // -------------------------------------------------------------------------
     pub fn contains_point(&self, p: &Vector2D) -> bool {
-        todo!("TODO 6: check if point is inside bounding box")
+        (self.min_x <= p.x && self.max_x >= p.x) && (self.min_y <= p.y && self.max_y >= p.y)
     }
 }
 
