@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use pgrx::{prelude::*, spi::SpiError};
+use pgrx::{prelude::*, spi::{SpiError}};
 
 
 #[pg_extern]
@@ -99,6 +99,38 @@ fn pg_lab_count_indexes(table_name: &str) -> i64 {
     let query_str = "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1";
     Spi::get_one_with_args::<i64>(
         query_str, &[table_name.into()]).unwrap().unwrap_or(0)
+}
+
+#[pg_extern]
+fn pg_lab_get_current_user() -> String {
+    Spi::get_one::<String>("Select current_user::text")
+    .unwrap()
+    .unwrap()
+}
+
+
+#[pg_extern]
+fn pg_lab_get_db_name() -> String {
+    Spi::get_one::<String>("Select current_database()::text")
+    .unwrap()
+    .unwrap()
+}
+
+#[pg_extern]
+fn pg_lab_get_server() -> String {
+    Spi::get_one("Show server_version")
+    .unwrap()
+    .unwrap()
+}
+
+#[pg_extern]
+fn pg_lab_count_columns(table_name : &str) -> i64 {
+   let query = "SELECT count(*) FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'"; 
+
+    Spi::get_one_with_args::<i64>(
+        query, &[table_name.into()]
+    ).unwrap().unwrap_or(0)
+
 }
 
 
