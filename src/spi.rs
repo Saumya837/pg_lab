@@ -16,28 +16,6 @@ fn pg_lab_row_count(table_name : &str) -> Option<i64> {
 }
 
 #[pg_extern]
-fn pg_lab_table_info(table_name : &str) -> TableIterator<'static,
-                                                            (
-                                                                name!(parameter, String),
-                                                                name!(type, String)
-                                                            )> {
-        let mut results = Vec::new();
-        
-        Spi::connect(|client| {
-            let query = "Select column_name::text, data_type::text from information_schema.columns where table_name = $1";
-            let tup_table = client.select(query, None, &[table_name.into()]).unwrap();
-
-            for row in tup_table{
-                let col : String = row["column_name"].value().unwrap().unwrap();
-                let dtype: String = row["data_type"].value().unwrap().unwrap();
-                results.push((col, dtype))
-            }
-        });
-
-        TableIterator::new(results.into_iter())
-}
-
-#[pg_extern]
 fn pg_lab_try_execute(sql: &str) -> bool {
     PgTryBuilder::new(|| -> Result<bool, SpiError>{
         Spi::run(sql)?;
@@ -132,6 +110,41 @@ fn pg_lab_count_columns(table_name : &str) -> i64 {
     ).unwrap().unwrap_or(0)
 
 }
+
+#[pg_extern]
+fn pg_lab_table_column_info(table_name : &str) -> TableIterator<'static, (
+                                                                name!(column_name, String),
+                                                                name!(dtype, String)
+                                                        )> {
+
+    let mut res = Vec::new();
+
+    Spi::connect(|client| {
+            let query = "SELECT column_name::text, data_type::text FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'";
+            let tuple_selected = client.select(query, None, &[table_name.into()]).unwrap();
+
+            for row in tuple_selected {
+                let column: String = row["column_name"].value().unwrap().unwrap();
+                let dtype: String = row["data_type"].value().unwrap().unwrap();
+                res.push((column, dtype));
+            }
+    });
+
+    if res.is_empty(){
+        pgrx::error!("Table_name '{}' not found in 'public' schema", table_name);
+    }
+
+    TableIterator::new(res.into_iter())
+}
+
+
+#[pg_extern]
+fn pg_lab_table_column_type(table_name: &str, column_name: &str) -> Option<String> {
+    let query = "SELECT data_type::text FROM information_schema.columns 
+                 WHERE table_name = $1 AND column_name = $2 AND table_schema = 'public'";
+    Spi::get_one_with_args::<String>(query, &[table_name.into(), column_name.into()]).unwrap()
+}
+
 
 
 
