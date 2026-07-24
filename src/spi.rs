@@ -145,6 +145,29 @@ fn pg_lab_table_column_type(table_name: &str, column_name: &str) -> Option<Strin
     Spi::get_one_with_args::<String>(query, &[table_name.into(), column_name.into()]).unwrap()
 }
 
+#[pg_extern]
+fn pg_lab_get_primary_key(table_name: &str) -> Option<String> {
+    let query = "SELECT string_agg(kcu.column_name, ', ') 
+                        from information_schema.table_constraints tc
+                        join information_schema.key_column_usage kcu
+                        on tc.constraint_name = kcu.constraint_name
+                        where tc.table_name = $1
+                        AND tc.table_schema = 'public'
+                        AND tc.constraint_type = 'PRIMARY KEY'";
+    
+    Spi::get_one_with_args::<String>(query, &[table_name.into()]).unwrap_or(None)
+}
+
+#[pg_extern]
+fn pg_lab_table_size(table_name: &str) -> i64 {
+    let query = "SELECT pg_total_relation_size(relid) AS total_size
+                            FROM pg_catalog.pg_statio_user_tables
+                            where schemaname = 'public'
+                            AND relname = $1";
+    
+    Spi::get_one_with_args::<i64>(query, &[table_name.into()]).unwrap().unwrap()
+}
+
 
 
 
