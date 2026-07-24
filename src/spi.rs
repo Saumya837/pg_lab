@@ -168,6 +168,24 @@ fn pg_lab_table_size(table_name: &str) -> i64 {
     Spi::get_one_with_args::<i64>(query, &[table_name.into()]).unwrap().unwrap()
 }
 
+#[pg_extern]
+fn pg_lab_get_duplicate_count(table_name: &str, col_name: &str) -> i64 {
+    // manual identifier escaping: double up any embedded quotes
+    let quoted_table = table_name.replace('"', "\"\"");
+    let quoted_col = col_name.replace('"', "\"\"");
+
+    let query = format!(
+        r#"SELECT count(*) FROM (
+               SELECT 1 FROM "{}" GROUP BY "{}" HAVING count(*) > 1
+           ) sub"#,
+        quoted_table, quoted_col
+    );
+
+    Spi::get_one::<i64>(&query).unwrap().unwrap_or(0)
+}
+
+
+
 
 
 
