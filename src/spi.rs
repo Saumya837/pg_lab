@@ -168,27 +168,44 @@ fn pg_lab_table_size(table_name: &str) -> i64 {
     Spi::get_one_with_args::<i64>(query, &[table_name.into()]).unwrap().unwrap()
 }
 
+
 #[pg_extern]
 fn pg_lab_get_duplicate_count(table_name: &str, col_name: &str) -> i64 {
     // manual identifier escaping: double up any embedded quotes
-    let quoted_table = table_name.replace('"', "\"\"");
-    let quoted_col = col_name.replace('"', "\"\"");
+    let safe_table_name = Spi::get_one_with_args::<String>(
+        "SELECT quote_ident($1)",
+        &[table_name.into()]
+    ).unwrap().unwrap();
 
-    let query = format!(
-        r#"SELECT count(*) FROM (
-               SELECT 1 FROM "{}" GROUP BY "{}" HAVING count(*) > 1
-           ) sub"#,
-        quoted_table, quoted_col
-    );
+    let safe_col_name = Spi::get_one_with_args::<String>(
+        "SELECT quote_ident($1)",
+        &[col_name.into()]
+    ).unwrap().unwrap();
+
+    let subquery: String = format!("SELECT 1 FROM {} GROUP BY {} HAVING count(*) > 1", safe_table_name, safe_col_name);
+
+    let query = format!("SELECT count(*) FROM ({}) a", subquery);
 
     Spi::get_one::<i64>(&query).unwrap().unwrap_or(0)
 }
 
+#[pg_extern]
+fn pg_lab_null_count(table_name: &str, col_name: &str) -> i64 {
 
+    let safe_table_name = Spi::get_one_with_args::<String>(
+        "SELECT quote_ident($1)",
+        &[table_name.into()]
+    ).unwrap().unwrap();
 
+    let safe_col_name = Spi::get_one_with_args::<String>(
+        "SELECT quote_ident($1)",
+        &[col_name.into()]
+    ).unwrap().unwrap();
 
+    let query = format!("SELECT count(*) FROM {} where {} is NULL", safe_table_name, safe_col_name);
 
-
+    Spi::get_one::<i64>(&query).unwrap().unwrap_or(0)
+}
 
 
 
