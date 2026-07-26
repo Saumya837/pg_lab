@@ -1,5 +1,4 @@
 use std::sync::OnceLock;
-
 use pgrx::{prelude::*, spi::{SpiError}};
 
 
@@ -172,12 +171,12 @@ fn pg_lab_table_size(table_name: &str) -> i64 {
 #[pg_extern]
 fn pg_lab_get_duplicate_count(table_name: &str, col_name: &str) -> i64 {
     // manual identifier escaping: double up any embedded quotes
-    let safe_table_name = Spi::get_one_with_args::<String>(
+    let safe_table_name: String  = Spi::get_one_with_args::<String>(
         "SELECT quote_ident($1)",
         &[table_name.into()]
     ).unwrap().unwrap();
 
-    let safe_col_name = Spi::get_one_with_args::<String>(
+    let safe_col_name: String  = Spi::get_one_with_args::<String>(
         "SELECT quote_ident($1)",
         &[col_name.into()]
     ).unwrap().unwrap();
@@ -190,14 +189,13 @@ fn pg_lab_get_duplicate_count(table_name: &str, col_name: &str) -> i64 {
 }
 
 #[pg_extern]
-fn pg_lab_null_count(table_name: &str, col_name: &str) -> i64 {
-
-    let safe_table_name = Spi::get_one_with_args::<String>(
+fn pg_lab_get_null_count(table_name: &str, col_name: &str) -> i64 {
+    let safe_table_name: String = Spi::get_one_with_args::<String>(
         "SELECT quote_ident($1)",
         &[table_name.into()]
     ).unwrap().unwrap();
 
-    let safe_col_name = Spi::get_one_with_args::<String>(
+    let safe_col_name: String = Spi::get_one_with_args::<String>(
         "SELECT quote_ident($1)",
         &[col_name.into()]
     ).unwrap().unwrap();
@@ -205,6 +203,72 @@ fn pg_lab_null_count(table_name: &str, col_name: &str) -> i64 {
     let query = format!("SELECT count(*) FROM {} where {} is NULL", safe_table_name, safe_col_name);
 
     Spi::get_one::<i64>(&query).unwrap().unwrap_or(0)
+}
+
+#[pg_extern]
+fn pg_lab_get_max_value(table_name : &str, col_name: &str) -> Option<String> {
+    let safe_table_name: String = Spi::get_one_with_args::<String>(
+                                            "SELECT quote_ident($1)",
+                                            &[table_name.into()])
+                                            .unwrap().unwrap();
+    
+    let safe_col_name: String = Spi::get_one_with_args::<String>(
+                                                    "Select quote_ident($1)",
+                                                    &[col_name.into()])  
+                                                    .unwrap().unwrap();      
+    
+    let query = format!("Select max({})::text from {}",safe_col_name, safe_table_name);
+
+    Spi::get_one
+    ::<String>(&query).unwrap()                                 
+}
+
+#[pg_extern]
+fn pg_lab_get_list_tables() -> TableIterator<'static, 
+                                                (
+                                                    name!(table_name, String),
+                                                )
+                                            >
+{
+    let mut result: Vec<String>  = Vec::new();
+
+    Spi::connect(|client| {
+        let query = "Select table_name::text from information_schema.tables where table_schema = 'public'";
+
+        let tuples = client.select(query, None, &[]).unwrap();
+
+        for row in tuples {
+            let curr_row = row.get::<String>(1).unwrap().unwrap();
+            result.push(curr_row);
+        }
+    });
+    TableIterator::new(result.into_iter().map(|s| (s, )))
+}
+
+
+#[pg_extern]
+fn pg_lab_get_columns(table_name: &str) -> TableIterator<'static, 
+                                                        (
+                                                            name!(column_name, String),
+                                                            name!(data_type, String)
+                                                        )> 
+{
+    let mut result = Vec::new();
+
+    Spi::connect(|client | {
+        let query = "Select column_name::text, data_type from information_schema.columns where table_schema = 'public' and table_name = $1";
+
+        let tuples = client.select(query, None, &[table_name.into()]).unwrap();
+
+        for row in tuples {
+            let col_name = row["column_name"].value().unwrap().unwrap();
+            let data_type = row["data_type"].value().unwrap().unwrap();
+            result.push((col_name, data_type));
+        }
+
+    });
+
+    TableIterator::new(result.into_iter())
 }
 
 
