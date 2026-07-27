@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{sync::OnceLock};
 use pgrx::{prelude::*, spi::SpiError};
 
 #[pg_extern]
@@ -205,6 +205,16 @@ fn pg_lab_get_null_count(table_name: &str, col_name: &str) -> i64 {
 }
 
 #[pg_extern]
+fn pg_lab_safe_query(sql: &str) -> Option<String> {
+    PgTryBuilder::new(|| -> Result<Option<String>, SpiError> {
+        Spi::get_one::<String>(sql)
+    }) 
+    .catch_others(|_| Ok(None))
+    .execute()
+    .unwrap()
+}
+
+#[pg_extern]
 fn pg_lab_get_max_value(table_name : &str, col_name: &str) -> Option<String> {
     let safe_table_name: String = Spi::get_one_with_args::<String>(
                                             "SELECT quote_ident($1)",
@@ -297,6 +307,75 @@ fn pg_lab_find_large_tables(min_size_bytes: i64) -> TableIterator<'static, (
      TableIterator::new(result.into_iter())    
 }
 
+#[pg_extern]
+fn pg_lab_bulk_insert(table_name: &str, values: Array<String>) -> i64 {
+    //return the number of 
+    let safe_table_name = Spi::get_one_with_args::<String>(
+                                                                "select quote_ident($1)", &[table_name.into()]
+                                                            ).unwrap().unwrap();
+
+    let mut success_count: i64 = 0;
+
+    for val in values.iter().flatten(){
+        let sql = format!("Insert Into {} (name) Values ('{}')", safe_table_name, val);
+        if pg_lab_try_execute(&sql){
+            success_count += 1;
+        }
+    }
+    success_count
+}
+
+#[pg_extern]
+fn pg_lab_table_stats(table_name: &str) -> TableIterator<'static, (
+    name!(column, String),
+    name!(nulls, i64),
+    name!(distinct, i64),
+    name!(max_val, Option<String>)
+)> {
+    let mut result = Vec::new();
+
+    // Step 1: safely quote the table name once
+    let safe_table = Spi::get_one_with_args::<String>(
+        "SELECT quote_ident($1)", &[table_name.into()]
+    ).unwrap().unwrap();
+
+    // Step 2: get all column names for this table
+    let mut columns = Vec::new();
+    Spi::connect(|client| {
+        let query = "SELECT column_name::text FROM information_schema.columns 
+                     WHERE table_schema = 'public' AND table_name = $1";
+        let tuples = client.select(query, None, &[table_name.into()]).unwrap();
+        for row in tuples {
+            let col_name: String = row["column_name"].value().unwrap().unwrap();
+            columns.push(col_name);
+        }
+    });
+
+    // Step 3: for each column, compute nulls, distinct, max
+    for col in columns {
+        let safe_col = Spi::get_one_with_args::<String>(
+            "SELECT quote_ident($1)", &[col.clone().into()]
+        ).unwrap().unwrap();
+
+        let null_query = format!(
+            "SELECT count(*) FROM {} WHERE {} IS NULL", safe_table, safe_col
+        );
+        let distinct_query = format!(
+            "SELECT count(DISTINCT {}) FROM {}", safe_col, safe_table
+        );
+        let max_query = format!(
+            "SELECT max({}::text) FROM {}", safe_col, safe_table
+        );
+
+        let nulls: i64 = Spi::get_one(&null_query).unwrap().unwrap_or(0);
+        let distinct: i64 = Spi::get_one(&distinct_query).unwrap().unwrap_or(0);
+        let max_val: Option<String> = Spi::get_one(&max_query).unwrap_or(None);
+
+        result.push((col, nulls, distinct, max_val));
+    }
+
+    TableIterator::new(result.into_iter())
+}
 
 
 
