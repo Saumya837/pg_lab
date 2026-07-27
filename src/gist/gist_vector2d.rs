@@ -64,7 +64,8 @@
 use pgrx::prelude::*;
 use pgrx::pg_sys;
 
-// Your Vector2D type (already built in exercises)
+
+// Your Vector2D type 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct Vector2D {
@@ -230,10 +231,6 @@ impl BoundingBox {
 }
 
 // Helper: distance² between two points (no sqrt = faster)
-fn manhattan_dist(x1: f64, y1: f64, x2: f64, y2: f64) -> f64{
-    (x1-x2).abs() + (y1-y2).abs()
-}
-
 fn dist_squared(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
     (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
 }
@@ -247,6 +244,8 @@ fn dist_squared(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
 // REQUIREMENT: Must never return false when the answer could be true
 //              (false negatives are FORBIDDEN — you'd miss real results)
 //              Returning true when false is OK (false positive = just extra work)
+//
+// false negative means it is present but showing not present
 //
 // REQUIREMENT: At LEAF nodes — check the ACTUAL POINT against the query
 //              At INTERNAL nodes — check the BOUNDING BOX against the query
@@ -279,32 +278,35 @@ fn dist_squared(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
 //     distance to (0,0) = 5.65 > 5.0 → return false (NOT in result)
 //
 // =============================================================================
+
+fn is_point_in_circle(point: &Vector2D, query: &CircleQuery) -> bool {
+    dist_squared(point.x, point.y, query.x, query.y) <= (query.radius * query.radius) 
+}
+
+fn does_bbox_overlap_circle(bbox: &BoundingBox, query: &CircleQuery) -> bool {
+    bbox.overlaps_circle(query.x, query.y, query.radius);
+}
+
+
+
 #[pg_extern(immutable, strict, parallel_safe)]
 unsafe fn vector2d_gist_consistent(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    // TODO 7: Implement consistent
-    //
-    // STEPS:
-    //   1. Extract GISTENTRY from arg 0:
-    //      let entry = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
-    //
-    //   2. Extract the query from arg 1
-    //      The query is a circle: (center_x, center_y, radius)
-    //      We'll define a CircleQuery type below
-    //
-    //   3. Check if this is a leaf node:
-    //      if pg_sys::GIST_LEAF(entry) {
-    //          // leaf: check actual point against circle
-    //      } else {
-    //          // internal: check bounding box against circle
-    //      }
-    //
-    //   4. Return result as Datum:
-    //      pg_sys::Datum::from(result as u8 as usize)
 
+    let entry = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
+    let query = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut CircleQuery;   
 
-    todo!("TODO 7: implement consistent — the search/prune decision")
+    let result = if pg_sys::GIST_LEAF(entry){
+        let point = pg_sys::DatumGetPointer((*entry).key) as *mut Vector2D;
+        is_point_in_circle(&*point, &*query)
+    } 
+    else{
+        let bbox = pg_sys::DatumGetPointer((*entry).key) as *mut BoundingBox;
+        does_bbox_overlap_circle(&*bbox, &*query)
+    };
+    
+    pg_sys::Datum::from(result as usize)
 }
 
 // =============================================================================

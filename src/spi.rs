@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
-use pgrx::{prelude::*, spi::{SpiError}};
-
+use pgrx::{prelude::*, spi::SpiError};
 
 #[pg_extern]
 fn pg_lab_row_count(table_name : &str) -> Option<i64> {
@@ -269,6 +268,33 @@ fn pg_lab_get_columns(table_name: &str) -> TableIterator<'static,
     });
 
     TableIterator::new(result.into_iter())
+}
+
+#[pg_extern]
+fn pg_lab_find_large_tables(min_size_bytes: i64) -> TableIterator<'static, (
+                                                    name!(table_name, String), 
+                                                    name!(size_bytes, i64)
+                                                )> 
+{
+    let mut result = Vec::new();
+
+    Spi::connect(|client | {
+        let query = "SELECT relname::text as tablename, pg_total_relation_size(relid) as table_size
+                                FROM pg_catalog.pg_statio_user_tables
+                                WHERE schemaname = 'public'
+                                AND pg_total_relation_size(relid) >= $1";
+
+        let tuples = client.select(query, None, &[min_size_bytes.into()]).unwrap();
+
+        for row in tuples{
+            let table_name = row["tablename"].value().unwrap().unwrap();
+            let table_size = row["table_size"].value().unwrap().unwrap();
+
+            result.push((table_name, table_size));
+        }
+    });
+
+     TableIterator::new(result.into_iter())    
 }
 
 
