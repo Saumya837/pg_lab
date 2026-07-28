@@ -327,11 +327,12 @@ fn pg_lab_bulk_insert(table_name: &str, values: Array<String>) -> i64 {
 
 #[pg_extern]
 fn pg_lab_table_stats(table_name: &str) -> TableIterator<'static, (
-    name!(column, String),
-    name!(nulls, i64),
-    name!(distinct, i64),
-    name!(max_val, Option<String>)
-)> {
+                                                            name!(column, String),
+                                                            name!(nulls, i64),
+                                                            name!(distinct, i64),
+                                                            name!(max_val, Option<String>)
+                                                        )> 
+{
     let mut result = Vec::new();
 
     // Step 1: safely quote the table name once

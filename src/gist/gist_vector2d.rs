@@ -293,7 +293,6 @@ fn does_bbox_overlap_circle(bbox: &BoundingBox, query: &CircleQuery) -> bool {
 unsafe fn vector2d_gist_consistent(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-
     let entry = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
     let query = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut CircleQuery;   
 
@@ -337,8 +336,6 @@ unsafe fn vector2d_gist_consistent(
 unsafe fn vector2d_gist_union(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    // TODO 8: Implement union
-    //
     // STEPS:
     //   1. Extract GistEntryVector from arg 0:
     //      let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0)
@@ -358,7 +355,23 @@ unsafe fn vector2d_gist_union(
     //      let result_ptr = pg_sys::palloc(size_of::<BoundingBox>()) as *mut BoundingBox;
     //      *result_ptr = result;
     //      pg_sys::Datum::from(result_ptr as usize)
-    todo!("TODO 8: implement union — build bounding box for internal node")
+    
+    let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
+
+    let num_of_entries = (*entryvec).n;
+
+    let first_key = pg_sys::DatumGetPointer((*entryvec).vector[0].key) as *mut BoundingBox;
+    let mut result = *first_key;
+
+    for i in 1..num_of_entries {
+        let key = pg_sys::DataGetPointer((*entervec).vector[i as usize].key) as *mut BoundingBox;
+        result = result.expand(&*key);
+    }
+
+    let result_ptr = pg_sys::palloc(std::mem::size_of::<BoundingBox>()) as *mut BoundingBox;
+    *result_ptr = result;
+
+    pg_sys::Datum::from(result_ptr as usize)
 }
 
 // =============================================================================
