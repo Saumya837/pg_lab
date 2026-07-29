@@ -336,35 +336,14 @@ unsafe fn vector2d_gist_consistent(
 unsafe fn vector2d_gist_union(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    // STEPS:
-    //   1. Extract GistEntryVector from arg 0:
-    //      let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0)
-    //                      as *mut pg_sys::GistEntryVector;
-    //
-    //   2. Get number of entries: (*entryvec).n
-    //
-    //   3. Get first entry's key, convert to BoundingBox
-    //
-    //   4. Loop through remaining entries, expand the box each time:
-    //      for i in 1..n {
-    //          let entry_key = get_key(entryvec, i);
-    //          result = result.expand(&entry_key);
-    //      }
-    //
-    //   5. palloc a BoundingBox, copy result into it, return pointer as Datum:
-    //      let result_ptr = pg_sys::palloc(size_of::<BoundingBox>()) as *mut BoundingBox;
-    //      *result_ptr = result;
-    //      pg_sys::Datum::from(result_ptr as usize)
-    
     let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
-
     let num_of_entries = (*entryvec).n;
 
-    let first_key = pg_sys::DatumGetPointer((*entryvec).vector[0].key) as *mut BoundingBox;
+    let first_key = pg_sys::DatumGetPointer((*entryvec)).vector[0].key as *mut BoundingBox;
     let mut result = *first_key;
 
-    for i in 1..num_of_entries {
-        let key = pg_sys::DataGetPointer((*entervec).vector[i as usize].key) as *mut BoundingBox;
+    for i in 1..num_of_entries{
+        let key = pg_sys::DatumGetPointer((*entryvec)).vector[i as usize] as *mut BoundingBox;
         result = result.expand(&*key);
     }
 
@@ -407,8 +386,6 @@ unsafe fn vector2d_gist_union(
 unsafe fn vector2d_gist_penalty(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    // TODO 9: Implement penalty
-    //
     // STEPS:
     //   1. Extract origentry (existing subtree's bounding box) from arg 0
     //   2. Extract newentry (new point being inserted) from arg 1
@@ -422,7 +399,18 @@ unsafe fn vector2d_gist_penalty(
     //
     //   7. Return result pointer as Datum (Postgres convention for penalty):
     //      pg_sys::Datum::from(result as usize)
-    todo!("TODO 9: implement penalty — score insertion cost")
+
+   let origentry =  pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
+   let newentry = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GISTENTRY;
+   let result = pg_sys::PG_GETARG_POINTER(fcinfo, 2) as *mut f32;
+
+   let orig_bbox = pg_sys.DatumGetPointer((*newentry)).key as *mut BoundingBox;
+   let new_point = pg_sys.DatumGetPointer((*newentry)).key as *mut Vector2D;
+   let new_bbox = newpoint.from_point();
+
+    *result = orig_bbox.expansion_cost(new_bbox) as f32;
+
+    pg_sys::Datum::from(result as usize)
 }
 
 // =============================================================================
