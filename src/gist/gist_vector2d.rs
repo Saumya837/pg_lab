@@ -204,8 +204,8 @@ impl BoundingBox {
         let closest_x = center_x.clamp(min_x, max_x);
         let closest_y = center_y.clamp(min_x, max_y);
 
-        dx = center_x - closest_x;
-        dy = center_y - closest_y;
+        let dx = center_x - closest_x;
+        let dy = center_y - closest_y;
 
         (dx * dx) + (dy * dy) <= (radius * radius)
     }
@@ -284,7 +284,12 @@ fn is_point_in_circle(point: &Vector2D, query: &CircleQuery) -> bool {
 }
 
 fn does_bbox_overlap_circle(bbox: &BoundingBox, query: &CircleQuery) -> bool {
-    bbox.overlaps_circle(query.x, query.y, query.radius);
+    bbox.overlaps_circle(query.x, query.y, query.radius)
+}
+
+unsafe fn get_point_at(entryvec: *mut pg_sys::GistEntryVector, i:usize) -> Vector2D{
+    let datum = (*entryvec).vector[i].key; //datum pointer
+    *(pg_sys::DatumGetPointer(datum)as *mut Vector2D) //datum pointer -> vector pointer
 }
 
 
@@ -339,11 +344,11 @@ unsafe fn vector2d_gist_union(
     let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
     let num_of_entries = (*entryvec).n;
 
-    let first_key = pg_sys::DatumGetPointer((*entryvec)).vector[0].key as *mut BoundingBox;
+    let first_key = pg_sys::DatumGetPointer((*entryvec).vector[0].key) as *mut BoundingBox;
     let mut result = *first_key;
 
     for i in 1..num_of_entries{
-        let key = pg_sys::DatumGetPointer((*entryvec)).vector[i as usize] as *mut BoundingBox;
+        let key = pg_sys::DatumGetPointer((*entryvec).vector[i as usize]) as *mut BoundingBox;
         result = result.expand(&*key);
     }
 
@@ -399,16 +404,15 @@ unsafe fn vector2d_gist_penalty(
     //
     //   7. Return result pointer as Datum (Postgres convention for penalty):
     //      pg_sys::Datum::from(result as usize)
-
    let origentry =  pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
    let newentry = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GISTENTRY;
    let result = pg_sys::PG_GETARG_POINTER(fcinfo, 2) as *mut f32;
 
-   let orig_bbox = pg_sys.DatumGetPointer((*newentry)).key as *mut BoundingBox;
-   let new_point = pg_sys.DatumGetPointer((*newentry)).key as *mut Vector2D;
-   let new_bbox = newpoint.from_point();
+   let orig_bbox = pg_sys::DatumGetPointer((*newentry)).key as *mut BoundingBox;
+   let new_point = pg_sys::DatumGetPointer((*newentry)).key as *mut Vector2D;
+   let new_bbox  = BoundingBox::from_point(&*newpoint);
 
-    *result = orig_bbox.expansion_cost(new_bbox) as f32;
+    *result = *(orig_bbox).expansion_cost(&new_bbox) as f32;
 
     pg_sys::Datum::from(result as usize)
 }
@@ -460,37 +464,99 @@ unsafe fn vector2d_gist_penalty(
 unsafe fn vector2d_gist_picksplit(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    // TODO 10: Implement picksplit
-    //
-    // STEPS:
-    //   1. Extract GistEntryVector from arg 0
-    //   2. Extract GIST_SPLITVEC from arg 1:
-    //      let v = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GIST_SPLITVEC;
-    //
-    //   3. Allocate spl_left and spl_right arrays:
-    //      v.spl_left = palloc(n * size_of::<OffsetNumber>()) as *mut OffsetNumber
-    //      v.spl_right = same
-    //      v.spl_nleft = 0
-    //      v.spl_nright = 0
-    //
-    //   4. Find seed for left group: entry with minimum x
-    //      Find seed for right group: entry with maximum x
-    //      Add seeds to their respective groups
-    //
-    //   5. For each remaining entry:
-    //      left_cost = left_bbox.expansion_cost(entry_bbox)
-    //      right_cost = right_bbox.expansion_cost(entry_bbox)
-    //      if left_cost <= right_cost: add to left, expand left_bbox
-    //      else: add to right, expand right_bbox
-    //
-    //   6. Set the union datums:
-    //      v.spl_ldatum = palloc BoundingBox with left_bbox, return as Datum
-    //      v.spl_rdatum = palloc BoundingBox with right_bbox, return as Datum
-    //
-    //   7. Return v as Datum
-    todo!("TODO 10: implement picksplit — split overfull node into two groups")
+    let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
+    let v = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GIST_SPLITVEC;
+    let n = (*entryvec).n as usize;
+
+    // extract all points with their indices
+    let mut points: Vec<(Vector2D, usize)> = Vec::new();
+    for i in 0..n {
+        let key = pg_sys::DatumGetPointer((*entryvec).vector[i].key) as *mut Vector2D;
+        points.push((*key, i));
+    }
+
+    // split into two groups
+    let (left_indices, right_indices) = picksplit_logic(&points);
+
+    // calculate left bounding box
+    let mut left_bbox = BoundingBox::from_point(&points[left_indices[0]].0);
+    for &idx in &left_indices[1..] {
+        left_bbox = left_bbox.expand(&BoundingBox::from_point(&points[idx].0));
+    }
+
+    // calculate right bounding box
+    let mut right_bbox = BoundingBox::from_point(&points[right_indices[0]].0);
+    for &idx in &right_indices[1..] {
+        right_bbox = right_bbox.expand(&BoundingBox::from_point(&points[idx].0));
+    }
+
+    // fill left array
+    (*v).spl_left = pg_sys::palloc(
+        left_indices.len() * std::mem::size_of::<pg_sys::OffsetNumber>()
+    ) as *mut pg_sys::OffsetNumber;
+    for (i, &idx) in left_indices.iter().enumerate() {
+        *(*v).spl_left.add(i) = idx as pg_sys::OffsetNumber;
+    }
+    (*v).spl_nleft = left_indices.len() as i32;
+
+    // fill right array
+    (*v).spl_right = pg_sys::palloc(
+        right_indices.len() * std::mem::size_of::<pg_sys::OffsetNumber>()
+    ) as *mut pg_sys::OffsetNumber;
+    for (i, &idx) in right_indices.iter().enumerate() {
+        *(*v).spl_right.add(i) = idx as pg_sys::OffsetNumber;
+    }
+    (*v).spl_nright = right_indices.len() as i32;
+
+    // set bounding boxes
+    (*v).spl_ldatum = bbox_to_datum(left_bbox);
+    (*v).spl_rdatum = bbox_to_datum(right_bbox);
+
+    pg_sys::Datum::from(v as usize)
 }
 
+fn picksplit_logic(points: &[(Vector2D, usize)]) -> (Vec<usize>, Vec<usize>) {
+    // find range on each axis
+    let mut min_x = points[0].0.x;
+    let mut max_x = points[0].0.x;
+    let mut min_y = points[0].0.y;
+    let mut max_y = points[0].0.y;
+
+    let mut min_seed_x = points[0].0;
+    let mut max_seed_x = points[0].0;
+    let mut min_seed_y = points[0].0;
+    let mut max_seed_y = points[0].0;
+
+    for (p, _) in &points[1..] {
+        if p.x < min_x { min_x = p.x; min_seed_x = *p; }
+        if p.x > max_x { max_x = p.x; max_seed_x = *p; }
+        if p.y < min_y { min_y = p.y; min_seed_y = *p; }
+        if p.y > max_y { max_y = p.y; max_seed_y = *p; }
+    }
+
+    // pick axis with more spread
+    let (min_seed, max_seed) = if max_x - min_x >= max_y - min_y {
+        (min_seed_x, max_seed_x)
+    } else {
+        (min_seed_y, max_seed_y)
+    };
+
+    // assign each point to nearest seed
+    let mut left: Vec<usize> = Vec::new();
+    let mut right: Vec<usize> = Vec::new();
+
+    for (p, idx) in points {
+        let d_min = l1_dist(min_seed.x, min_seed.y, p.x, p.y);
+        let d_max = l1_dist(max_seed.x, max_seed.y, p.x, p.y);
+        if d_min <= d_max {
+            left.push(*idx);
+        } else {
+            right.push(*idx);
+        }
+    }
+
+    (left, right)
+}
 // =============================================================================
 // SQL TO CREATE THE OPERATOR CLASS
 // (run manually in psql after cargo pgrx run)

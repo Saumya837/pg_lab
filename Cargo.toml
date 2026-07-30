@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [features]
-default = []
+default = ["pg15"] 
 pg15 = ["pgrx/pg15"]
 pg_test = []
 
@@ -21,3 +21,6 @@ pgrx-tests = "0.19.1"
 
 [package.metadata.pgrx]
 sql = ["sql/complex_operators.sql"]
+
+[package.metadata.rust-analyzer]
+rustflags = ["--cfg", "feature=\"pg15\""]
