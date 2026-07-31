@@ -408,11 +408,11 @@ unsafe fn vector2d_gist_penalty(
    let newentry = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GISTENTRY;
    let result = pg_sys::PG_GETARG_POINTER(fcinfo, 2) as *mut f32;
 
-   let orig_bbox = pg_sys::DatumGetPointer((*newentry)).key as *mut BoundingBox;
-   let new_point = pg_sys::DatumGetPointer((*newentry)).key as *mut Vector2D;
-   let new_bbox  = BoundingBox::from_point(&*newpoint);
+   let orig_bbox = pg_sys::DatumGetPointer((*origentry).key) as *mut BoundingBox;
+   let new_point = pg_sys::DatumGetPointer((*newentry).key) as *mut Vector2D;
+   let new_bbox  = BoundingBox::from_point(&*new_point);
 
-    *result = *(orig_bbox).expansion_cost(&new_bbox) as f32;
+    *result = (*orig_bbox).expansion_cost(&new_bbox) as f32;
 
     pg_sys::Datum::from(result as usize)
 }
