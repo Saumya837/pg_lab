@@ -201,8 +201,8 @@ impl BoundingBox {
     //      If YES → go deeper
     // -------------------------------------------------------------------------
     pub fn overlaps_circle(&self, center_x: f64, center_y: f64, radius: f64) -> bool {
-        let closest_x = center_x.clamp(min_x, max_x);
-        let closest_y = center_y.clamp(min_x, max_y);
+        let closest_x = center_x.clamp(self.min_x, self.max_x);
+        let closest_y = center_y.clamp(self.min_y, self.max_y);
 
         let dx = center_x - closest_x;
         let dy = center_y - closest_y;
