@@ -96,6 +96,17 @@ pub struct BoundingBox {
     pub max_y: f64,
 }
 
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct CircleQuery{
+    pub x: f64,
+    pub y: f64,
+    pub radius: f64,
+}
+
+
+
 impl BoundingBox {
     // -------------------------------------------------------------------------
     // from_point
@@ -238,7 +249,6 @@ fn dist_squared(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
 // =============================================================================
 // GIST SUPPORT FUNCTION 1: CONSISTENT
 // =============================================================================
-//
 // WHAT IT DOES: Decides whether to search a subtree or prune it
 //
 // REQUIREMENT: Must never return false when the answer could be true
@@ -291,7 +301,6 @@ unsafe fn get_point_at(entryvec: *mut pg_sys::GistEntryVector, i:usize) -> Vecto
     let datum = (*entryvec).vector[i].key; //datum pointer
     *(pg_sys::DatumGetPointer(datum)as *mut Vector2D) //datum pointer -> vector pointer
 }
-
 
 
 #[pg_extern(immutable, strict, parallel_safe)]
@@ -348,7 +357,7 @@ unsafe fn vector2d_gist_union(
     let mut result = *first_key;
 
     for i in 1..num_of_entries{
-        let key = pg_sys::DatumGetPointer((*entryvec).vector[i as usize]) as *mut BoundingBox;
+        let key = pg_sys::DatumGetPointer((*entryvec).vector[i as usize].key) as *mut BoundingBox;
         result = result.expand(&*key);
     }
 
