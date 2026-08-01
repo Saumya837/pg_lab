@@ -105,8 +105,6 @@ pub struct CircleQuery{
     pub radius: f64,
 }
 
-
-
 impl BoundingBox {
     // -------------------------------------------------------------------------
     // from_point
@@ -289,6 +287,7 @@ fn dist_squared(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
 //
 // =============================================================================
 
+
 fn is_point_in_circle(point: &Vector2D, query: &CircleQuery) -> bool {
     dist_squared(point.x, point.y, query.x, query.y) <= (query.radius * query.radius) 
 }
@@ -302,6 +301,11 @@ unsafe fn get_point_at(entryvec: *mut pg_sys::GistEntryVector, i:usize) -> Vecto
     *(pg_sys::DatumGetPointer(datum)as *mut Vector2D) //datum pointer -> vector pointer
 }
 
+unsafe fn bbox_to_datum(bbox: BoundingBox) -> pg_sys::Datum {
+    let ptr = pg_sys::palloc(std::mem::size_of::<BoundingBox>()) as *mut BoundingBox;
+    *ptr = bbox;
+    pg_sys::PointerGetDatum(ptr as *mut std::ffi::c_void)
+}
 
 #[pg_extern(immutable, strict, parallel_safe)]
 unsafe fn vector2d_gist_consistent(
@@ -469,6 +473,7 @@ unsafe fn vector2d_gist_penalty(
 // We'll improve it in Week 4.
 //
 // =============================================================================
+
 #[pg_extern(immutable, strict, parallel_safe)]
 unsafe fn vector2d_gist_picksplit(
     fcinfo: pg_sys::FunctionCallInfo,
@@ -522,6 +527,10 @@ unsafe fn vector2d_gist_picksplit(
     (*v).spl_rdatum = bbox_to_datum(right_bbox);
 
     pg_sys::Datum::from(v as usize)
+}
+
+fn l1_dist(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    (x1 - x2).abs() + (y1 - y2).abs()
 }
 
 fn picksplit_logic(points: &[(Vector2D, usize)]) -> (Vec<usize>, Vec<usize>) {
