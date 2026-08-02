@@ -180,7 +180,7 @@ impl BoundingBox {
 
     pub fn expansion_cost(&self, other: &BoundingBox) -> f64 {
         let expanded = self.expand(other);
-        (expanded.area() - self.area())
+        expanded.area() - self.area()
     }
 
     // -------------------------------------------------------------------------
@@ -297,29 +297,29 @@ fn does_bbox_overlap_circle(bbox: &BoundingBox, query: &CircleQuery) -> bool {
 }
 
 unsafe fn get_point_at(entryvec: *mut pg_sys::GistEntryVector, i:usize) -> Vector2D{
-    let datum = (*entryvec).vector[i].key; //datum pointer
-    *(pg_sys::DatumGetPointer(datum)as *mut Vector2D) //datum pointer -> vector pointer
+    let datum = (*entryvec).vector.as_ptr().add(i).as_ref().unwrap().key; //  beyond pg_15 replace this to { (*entryvec).vector[i].key; }
+    *(datum.cast_mut_ptr::<Vector2D>())    //*(pg_sys::DatumGetPointer(datum)as *mut Vector2D) //datum pointer -> vector pointer
 }
 
 unsafe fn bbox_to_datum(bbox: BoundingBox) -> pg_sys::Datum {
     let ptr = pg_sys::palloc(std::mem::size_of::<BoundingBox>()) as *mut BoundingBox;
     *ptr = bbox;
-    pg_sys::PointerGetDatum(ptr as *mut std::ffi::c_void)
+    pg_sys::Datum::from(ptr as usize)
 }
 
-#[pg_extern(immutable, strict, parallel_safe)]
-unsafe fn vector2d_gist_consistent(
+#[pg_guard]
+pub unsafe extern "C-unwind" fn vector2d_gist_consistent(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    let entry = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
-    let query = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut CircleQuery;   
+    let entry = (*(*fcinfo).args.as_ptr()).value.cast_mut_ptr::<pg_sys::GISTENTRY>(); // beyond pg_15 replace this to { pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY };
+    let query = (*(*fcinfo).args.as_ptr().add(1)).value.cast_mut_ptr::<CircleQuery>(); //beyond pg_15 replace this to { pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut CircleQuery };   
 
-    let result = if pg_sys::GIST_LEAF(entry){
-        let point = pg_sys::DatumGetPointer((*entry).key) as *mut Vector2D;
+    let result = if (*entry).leafkey { // beyond pg_15 replace this to {if pg_sys::GIST_LEAF(entry)}
+        let point = (*entry).key.cast_mut_ptr::<Vector2D>();  //beyond pg_15 replace this to { pg_sys::DatumGetPointer((*entry).key) as *mut Vector2D };
         is_point_in_circle(&*point, &*query)
     } 
     else{
-        let bbox = pg_sys::DatumGetPointer((*entry).key) as *mut BoundingBox;
+        let bbox = (*entry).key.cast_mut_ptr::<BoundingBox>();  //beyond pg_15 replace this to { pg_sys::DatumGetPointer((*entry).key) as *mut BoundingBox };
         does_bbox_overlap_circle(&*bbox, &*query)
     };
     
@@ -350,18 +350,18 @@ unsafe fn vector2d_gist_consistent(
 //   Called during: INSERT, VACUUM, index rebuild
 //
 // =============================================================================
-#[pg_extern(immutable, strict, parallel_safe)]
-unsafe fn vector2d_gist_union(
+#[pg_guard]
+pub unsafe extern "C-unwind" fn vector2d_gist_union(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
+    let entryvec = (*(*fcinfo).args.as_ptr()).value.cast_mut_ptr::<pg_sys::GistEntryVector>(); //pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
     let num_of_entries = (*entryvec).n;
 
-    let first_key = pg_sys::DatumGetPointer((*entryvec).vector[0].key) as *mut BoundingBox;
+    let first_key = (*(*entryvec).vector.as_ptr()).key.cast_mut_ptr::<BoundingBox>(); //pg_sys::DatumGetPointer((*entryvec).vector[0].key) as *mut BoundingBox;
     let mut result = *first_key;
 
     for i in 1..num_of_entries{
-        let key = pg_sys::DatumGetPointer((*entryvec).vector[i as usize].key) as *mut BoundingBox;
+        let key =(*(*entryvec).vector.as_ptr().add(i as usize)).key.cast_mut_ptr::<BoundingBox>(); //pg_sys::DatumGetPointer((*entryvec).vector[i as usize].key) as *mut BoundingBox;
         result = result.expand(&*key);
     }
 
@@ -400,8 +400,8 @@ unsafe fn vector2d_gist_union(
 //   Good penalty implementation → tight bounding boxes → fast searches
 //
 // =============================================================================
-#[pg_extern(immutable, strict, parallel_safe)]
-unsafe fn vector2d_gist_penalty(
+#[pg_guard]
+pub unsafe extern "C-unwind" fn vector2d_gist_penalty(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
     // STEPS:
@@ -417,12 +417,12 @@ unsafe fn vector2d_gist_penalty(
     //
     //   7. Return result pointer as Datum (Postgres convention for penalty):
     //      pg_sys::Datum::from(result as usize)
-   let origentry =  pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
-   let newentry = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GISTENTRY;
-   let result = pg_sys::PG_GETARG_POINTER(fcinfo, 2) as *mut f32;
+   let origentry =  (*(*fcinfo).args.as_ptr()).value.cast_mut_ptr::<pg_sys::GISTENTRY>(); //pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GISTENTRY;
+   let newentry  =  (*(*fcinfo).args.as_ptr().add(1)).value.cast_mut_ptr::<pg_sys::GISTENTRY>(); //pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GISTENTRY;
+   let result = (*(*fcinfo).args.as_ptr().add(2)).value.cast_mut_ptr::<f32>(); //pg_sys::PG_GETARG_POINTER(fcinfo, 2) as *mut f32;
 
-   let orig_bbox = pg_sys::DatumGetPointer((*origentry).key) as *mut BoundingBox;
-   let new_point = pg_sys::DatumGetPointer((*newentry).key) as *mut Vector2D;
+   let orig_bbox = (*origentry).key.cast_mut_ptr::<BoundingBox>();// pg_sys::DatumGetPointer((*origentry).key) as *mut BoundingBox;
+   let new_point = (*newentry).key.cast_mut_ptr::<Vector2D>(); // pg_sys::DatumGetPointer((*newentry).key) as *mut Vector2D;
    let new_bbox  = BoundingBox::from_point(&*new_point);
 
     *result = (*orig_bbox).expansion_cost(&new_bbox) as f32;
@@ -474,18 +474,18 @@ unsafe fn vector2d_gist_penalty(
 //
 // =============================================================================
 
-#[pg_extern(immutable, strict, parallel_safe)]
-unsafe fn vector2d_gist_picksplit(
+#[pg_guard]
+pub unsafe extern "C-unwind" fn vector2d_gist_picksplit(
     fcinfo: pg_sys::FunctionCallInfo,
 ) -> pg_sys::Datum {
-    let entryvec = pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut pg_sys::GistEntryVector;
-    let v = pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GIST_SPLITVEC;
+    let entryvec = (*(*fcinfo).args.as_ptr()).value.cast_mut_ptr::<pg_sys::GistEntryVector>();// pg_sys::PG_GETARG_POINTER(fcinfo, 0) as *mut ;
+    let v = (*(*fcinfo).args.as_ptr().add(1)).value.cast_mut_ptr::<pg_sys::GIST_SPLITVEC>(); //pg_sys::PG_GETARG_POINTER(fcinfo, 1) as *mut pg_sys::GIST_SPLITVEC;
     let n = (*entryvec).n as usize;
 
     // extract all points with their indices
     let mut points: Vec<(Vector2D, usize)> = Vec::new();
     for i in 0..n {
-        let key = pg_sys::DatumGetPointer((*entryvec).vector[i].key) as *mut Vector2D;
+        let key = (*(*entryvec).vector.as_ptr().add(i)).key.cast_mut_ptr::<Vector2D>(); //pg_sys::DatumGetPointer((*entryvec).vector[i].key) as *mut Vector2D;
         points.push((*key, i));
     }
 
@@ -571,6 +571,13 @@ fn picksplit_logic(points: &[(Vector2D, usize)]) -> (Vec<usize>, Vec<usize>) {
         } else {
             right.push(*idx);
         }
+    }
+
+    if left.is_empty(){
+        left.push(right.pop().unwrap())
+    }
+    if right.is_empty(){
+        right.push(left.pop().unwrap())
     }
 
     (left, right)
