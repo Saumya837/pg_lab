@@ -135,3 +135,5 @@ fn pg_lab_avoid_del_active_record<'a>(
     Ok(Some(row))  // allow delete if not active
 }
 
+
+

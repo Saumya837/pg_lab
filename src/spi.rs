@@ -316,9 +316,17 @@ fn pg_lab_bulk_insert(table_name: &str, values: Array<String>) -> i64 {
 
     let mut success_count: i64 = 0;
 
-    for val in values.iter().flatten(){
-        let sql = format!("Insert Into {} (name) Values ('{}')", safe_table_name, val);
-        if pg_lab_try_execute(&sql){
+    let query = format!("Insert INTO {} (name) VALUES ($1)", safe_table_name);
+    for val in values.iter().flatten() {
+        let result = PgTryBuilder::new(|| -> Result<bool, SpiError> {
+            Spi::run_with_args(&query, &[val.clone().into()])?;
+            Ok(true)
+        })
+        .catch_others(|_| Ok(false))
+        .execute()
+        .unwrap();
+
+        if result {
             success_count += 1;
         }
     }
@@ -377,6 +385,8 @@ fn pg_lab_table_stats(table_name: &str) -> TableIterator<'static, (
 
     TableIterator::new(result.into_iter())
 }
+
+
 
 
 
