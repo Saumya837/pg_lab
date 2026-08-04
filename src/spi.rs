@@ -162,8 +162,12 @@ fn pg_lab_table_size(table_name: &str) -> i64 {
                             FROM pg_catalog.pg_statio_user_tables
                             where schemaname = 'public'
                             AND relname = $1";
-    
-    Spi::get_one_with_args::<i64>(query, &[table_name.into()]).unwrap().unwrap()
+
+    match Spi::get_one_with_args::<i64>(query, &[table_name.into()]){
+        Ok(Some(size)) => size,
+        Ok(None) => pgrx::error!("Table '{}' has no I/O stats yet", table_name),
+        Err(_) => pgrx::error!("Table '{}' does not exist in 'public' schema", table_name),
+    }
 }
 
 
