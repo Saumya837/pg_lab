@@ -174,17 +174,12 @@ fn pg_lab_table_size(table_name: &str) -> i64 {
 #[pg_extern]
 fn pg_lab_get_duplicate_count(table_name: &str, col_name: &str) -> i64 {
     // manual identifier escaping: double up any embedded quotes
-    let safe_table_name: String  = Spi::get_one_with_args::<String>(
-        "SELECT quote_ident($1)",
-        &[table_name.into()]
-    ).unwrap().unwrap();
+    let (safe_table_name, safe_col_name)  = Spi::get_two_with_args::<String, String>(
+        "SELECT quote_ident($1), quote_ident($2)",
+        &[table_name.into(), col_name.into()]
+    ).unwrap();
 
-    let safe_col_name: String  = Spi::get_one_with_args::<String>(
-        "SELECT quote_ident($1)",
-        &[col_name.into()]
-    ).unwrap().unwrap();
-
-    let subquery: String = format!("SELECT 1 FROM {} GROUP BY {} HAVING count(*) > 1", safe_table_name, safe_col_name);
+    let subquery: String = format!("SELECT 1 FROM {} GROUP BY {} HAVING count(*) > 1", safe_table_name.unwrap(), safe_col_name.unwrap());
 
     let query = format!("SELECT count(*) FROM ({}) a", subquery);
 
@@ -193,17 +188,12 @@ fn pg_lab_get_duplicate_count(table_name: &str, col_name: &str) -> i64 {
 
 #[pg_extern]
 fn pg_lab_get_null_count(table_name: &str, col_name: &str) -> i64 {
-    let safe_table_name: String = Spi::get_one_with_args::<String>(
-        "SELECT quote_ident($1)",
-        &[table_name.into()]
-    ).unwrap().unwrap();
+    let (safe_table_name, safe_col_name) = Spi::get_two_with_args::<String, String>("SELECT quote_ident($1), quote_ident($2)",
+                                                                    &[table_name.into(), col_name.into()]
+                                                                ).unwrap();
 
-    let safe_col_name: String = Spi::get_one_with_args::<String>(
-        "SELECT quote_ident($1)",
-        &[col_name.into()]
-    ).unwrap().unwrap();
-
-    let query = format!("SELECT count(*) FROM {} where {} is NULL", safe_table_name, safe_col_name);
+    let query = format!("SELECT count(*) FROM {} where {} is NULL",
+                                                safe_table_name.unwrap(), safe_col_name.unwrap());
 
     Spi::get_one::<i64>(&query).unwrap().unwrap_or(0)
 }
@@ -220,20 +210,14 @@ fn pg_lab_safe_query(sql: &str) -> Option<String> {
 
 #[pg_extern]
 fn pg_lab_get_max_value(table_name : &str, col_name: &str) -> Option<String> {
-    let safe_table_name: String = Spi::get_one_with_args::<String>(
-                                            "SELECT quote_ident($1)",
-                                            &[table_name.into()])
-                                            .unwrap().unwrap();
+    let (safe_table_name, safe_col_name) = Spi::get_two_with_args::<String,String>(
+                                            "SELECT quote_ident($1), quote_ident($2)",
+                                            &[table_name.into(), col_name.into()])
+                                            .unwrap();    
     
-    let safe_col_name: String = Spi::get_one_with_args::<String>(
-                                                    "Select quote_ident($1)",
-                                                    &[col_name.into()])  
-                                                    .unwrap().unwrap();      
-    
-    let query = format!("Select max({})::text from {}",safe_col_name, safe_table_name);
+    let query = format!("Select max({})::text from {}",safe_col_name.unwrap(), safe_table_name.unwrap());
 
-    Spi::get_one
-    ::<String>(&query).unwrap()                                 
+    Spi::get_one::<String>(&query).unwrap()                                 
 }
 
 #[pg_extern]
@@ -354,6 +338,7 @@ fn pg_lab_table_stats(table_name: &str) -> TableIterator<'static, (
 
     // Step 2: get all column names for this table
     let mut columns = Vec::new();
+
     Spi::connect(|client| {
         let query = "SELECT column_name::text FROM information_schema.columns 
                      WHERE table_schema = 'public' AND table_name = $1";
@@ -370,21 +355,27 @@ fn pg_lab_table_stats(table_name: &str) -> TableIterator<'static, (
             "SELECT quote_ident($1)", &[col.clone().into()]
         ).unwrap().unwrap();
 
-        let null_query = format!(
-            "SELECT count(*) FROM {} WHERE {} IS NULL", safe_table, safe_col
-        );
-        let distinct_query = format!(
-            "SELECT count(DISTINCT {}) FROM {}", safe_col, safe_table
-        );
-        let max_query = format!(
-            "SELECT max({}::text) FROM {}", safe_col, safe_table
+        let query = format!(
+            "SELECT count(*) FILTER(WHERE {} IS NULL) as nulls,
+            count(DISTINCT {}) as distincts, 
+            max({}::text) as max_val
+            FROM {}",safe_col, safe_col, safe_col, safe_table
         );
 
-        let nulls: i64 = Spi::get_one(&null_query).unwrap().unwrap_or(0);
-        let distinct: i64 = Spi::get_one(&distinct_query).unwrap().unwrap_or(0);
-        let max_val: Option<String> = Spi::get_one(&max_query).unwrap_or(None);
+        let mut row_result = (0i64, 0i64, None::<String>);
 
-        result.push((col, nulls, distinct, max_val));
+        Spi::connect(|client| {
+            let tuples = client.select(&query, None, &[]).unwrap();
+
+            for row in tuples {
+                let nulls: i64 = row["nulls"].value().unwrap().unwrap_or(0);
+                let distincts: i64 = row["distincts"].value().unwrap().unwrap_or(0);
+                let max_val: Option<String> = row["max_val"].value().unwrap();
+                row_result = (nulls, distincts, max_val); 
+            }        
+        });
+
+        result.push((col, row_result.0, row_result.1, row_result.2));
     }
 
     TableIterator::new(result.into_iter())
