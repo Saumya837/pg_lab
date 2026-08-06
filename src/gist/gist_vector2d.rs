@@ -5,6 +5,7 @@
 // WHAT WE ARE BUILDING:
 //   An index that makes spatial queries fast on 2D points.
 //
+
 // WITHOUT THIS INDEX:
 //   SELECT * FROM locations WHERE pos <-> '(0,0)'::vector2d < 5.0;
 //   → Postgres scans EVERY row, computes distance for each one

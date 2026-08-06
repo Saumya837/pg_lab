@@ -381,6 +381,31 @@ fn pg_lab_table_stats(table_name: &str) -> TableIterator<'static, (
     TableIterator::new(result.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_execute_partial_tolereant(query: Array<String>) -> i64 {
+    //skip any queries that fail, and return the number of successful queries
+
+    let query_set: Vec<String> = query.iter().flatten().collect();
+
+    let mut success_count: i64 = 0;
+
+    for sql in &query_set{
+        let result = PgTryBuilder::new(move || -> Result<bool, SpiError> {
+            Spi::run(&sql)?;
+            Ok(true)
+        })
+        .catch_others(|_| Ok(false))
+        .execute()
+        .unwrap();
+
+        if result {
+            success_count += 1;
+        }    
+    }
+   
+    success_count
+}
+
 
 
 
