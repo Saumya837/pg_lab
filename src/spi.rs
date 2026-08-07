@@ -406,6 +406,46 @@ fn pg_lab_execute_partial_tolereant(query: Array<String>) -> i64 {
     success_count
 }
 
+#[pg_extern]
+fn pg_lab_execute_rollback_all_native(queries: Array<String>) -> bool {
+    let owned_queries: Vec<String> = queries.iter().flatten().collect();
+
+    unsafe {
+        // Save current context/owner so we can restore them no matter what happens
+        let oldcontext = pg_sys::CurrentMemoryContext;
+        let oldowner = pg_sys::CurrentResourceOwner;
+
+        // Begin a REAL Postgres subtransaction (not just a Rust panic-catch)
+        pg_sys::BeginInternalSubTransaction(std::ptr::null());
+
+        // Per the plpgsql pattern: switch back into the outer context so our
+        // statements run in familiar memory, not the fresh subtransaction context
+        pg_sys::MemoryContextSwitchTo(oldcontext);
+
+        let success = PgTryBuilder::new(move || -> Result<bool, SpiError> {
+            for sql in &owned_queries {
+                Spi::run(sql)?;
+            }
+            Ok(true)
+        })
+        .catch_others(|_| Ok(false))
+        .execute()
+        .unwrap();
+
+        if success {
+            pg_sys::ReleaseCurrentSubTransaction();
+        } else {
+            pg_sys::RollbackAndReleaseCurrentSubTransaction();
+        }
+
+        // Restore outer context/owner regardless of success or failure
+        pg_sys::MemoryContextSwitchTo(oldcontext);
+        pg_sys::CurrentResourceOwner = oldowner;
+
+        success
+    }
+}
+
 
 
 
