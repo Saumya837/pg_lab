@@ -408,30 +408,33 @@ fn pg_lab_execute_partial_tolereant(query: Array<String>) -> i64 {
 
 #[pg_extern]
 fn pg_lab_execute_rollback_all_native(queries: Array<String>) -> bool {
+
     let owned_queries: Vec<String> = queries.iter().flatten().collect();
 
-    unsafe {
-        // Save current context/owner so we can restore them no matter what happens
+    unsafe { 
+        //pg_sys is a library which bridges the gap to use the postgres construct
         let oldcontext = pg_sys::CurrentMemoryContext;
         let oldowner = pg_sys::CurrentResourceOwner;
 
-        // Begin a REAL Postgres subtransaction (not just a Rust panic-catch)
+        //a new memory context begins
         pg_sys::BeginInternalSubTransaction(std::ptr::null());
 
-        // Per the plpgsql pattern: switch back into the outer context so our
-        // statements run in familiar memory, not the fresh subtransaction context
+        //switch back to old context so that queries run in familiar memory, not the fresh subtransaction context
         pg_sys::MemoryContextSwitchTo(oldcontext);
 
         let success = PgTryBuilder::new(move || -> Result<bool, SpiError> {
             for sql in &owned_queries {
-                Spi::run(sql)?;
+                Spi::run(&sql)?;
             }
             Ok(true)
         })
         .catch_others(|_| Ok(false))
         .execute()
         .unwrap();
-
+        
+        // Memory Context Changes: If the subtransaction was successful, we release it.
+        // If it failed, we roll back and release it. 
+        // This ensures that any memory allocated during the subtransaction is properly cleaned up.
         if success {
             pg_sys::ReleaseCurrentSubTransaction();
         } else {
@@ -445,6 +448,25 @@ fn pg_lab_execute_rollback_all_native(queries: Array<String>) -> bool {
         success
     }
 }
+
+#[pg_extern]
+fn pg_lab_safe_execute_with_message(sql: &str) -> String {
+    PgTryBuilder::new(|| -> Result<String, SpiError> {
+        Spi::run(sql)?;
+        Ok("Success".to_string())
+    })
+    .catch_when(PgSqlErrorCode::ERRCODE_DIVISION_BY_ZERO, |_| {
+        Ok("failed: division by zero".to_string())
+    })
+    .catch_when(PgSqlErrorCode::ERRCODE_INVALID_TEXT_REPRESENTATION, |_| {
+        Ok("failed: Invalid text representation error".to_string())
+    })
+    .catch_others(|_| Ok("failed: other error".to_string()))
+    .execute()
+    .unwrap()
+}
+
+
 
 
 
