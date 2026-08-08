@@ -466,6 +466,19 @@ fn pg_lab_safe_execute_with_message(sql: &str) -> String {
     .unwrap()
 }
 
+#[pg_extern]
+fn pg_lab_describe_spi_error(sql: &str) -> String {
+    let result: Result<Option<i64>, SpiError> = Spi::get_one(sql);
+
+    match result {
+        Ok(Some(val)) => format!("success: {}", val),
+        Ok(None) => "success: no rows".to_string(),
+        Err(SpiError::InvalidPosition) => "spi error: tuple table out of bounds".to_string(),
+        Err(SpiError::CursorNotFound(name)) => format!("spi error: cursor '{}' not found", name),
+        Err(other) => format!("spi error: {:?}", other),
+    }
+}
+
 
 
 
