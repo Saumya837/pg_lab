@@ -479,6 +479,31 @@ fn pg_lab_describe_spi_error(sql: &str) -> String {
     }
 }
 
+#[pg_extern]
+fn pg_lab_entries_where_clause(table_name: &str, column_name: &str, operator: &str, value: i64) -> i64 {
+    // Step 1: operator whitelist check
+    let safe_operator = match operator {
+        "=" | ">" | "<" | "!=" | ">=" | "<=" => operator,
+        _ => pgrx::error!("Invalid operator: {}", operator),
+    };
+
+    // Step 2: quote_ident table_name aur column_name
+    // (tumhara pehle wala pattern yaad hai -- get_two_with_args se ek round trip mein)
+    let (Some(safe_table), Some(safe_column)) = Spi::get_two_with_args::<String, String>
+                                                                    ("Select quote_ident($1), quote_ident($2)", &[table_name.into(), column_name.into()])
+                                                                    .unwrap() else{
+                                                                         pgrx::error!("Failed to quote identifiers");
+                                                                    };
+
+    // Step 3: build query with safe pieces, value still parameterized via $1
+    let query = format!("SELECT count(*) FROM {} WHERE {} {} $1", safe_table, safe_column, safe_operator);
+
+    Spi::get_one_with_args::<i64>(&query, &[value.into()])
+        .unwrap()
+        .unwrap_or(0)
+}
+
+
 
 
 
