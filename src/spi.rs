@@ -488,7 +488,6 @@ fn pg_lab_entries_where_clause(table_name: &str, column_name: &str, operator: &s
     };
 
     // Step 2: quote_ident table_name aur column_name
-    // (tumhara pehle wala pattern yaad hai -- get_two_with_args se ek round trip mein)
     let (Some(safe_table), Some(safe_column)) = Spi::get_two_with_args::<String, String>
                                                                     ("Select quote_ident($1), quote_ident($2)", &[table_name.into(), column_name.into()])
                                                                     .unwrap() else{
@@ -501,6 +500,58 @@ fn pg_lab_entries_where_clause(table_name: &str, column_name: &str, operator: &s
     Spi::get_one_with_args::<i64>(&query, &[value.into()])
         .unwrap()
         .unwrap_or(0)
+}
+
+#[pg_extern]
+fn pg_lab_safe_order_by(table_name: &str, column_name: &str, direction: &str) -> TableIterator<'static, (
+                                                                                                name!(id, i64),
+                                                                                                name!(name, String),
+                                                                                            )>
+{
+    let safe_direction = match direction.to_uppercase().as_str() {
+        "ASC" | "DESC" => direction.to_uppercase(),
+        _ => pgrx::error!("Invalid sort direction: {}", direction)  
+    };  
+
+
+    // Step 2: quote_ident table_name aur column_name
+    let (Some(safe_table_name), Some(safe_column_name)) = Spi::get_two_with_args::<String, String>
+                                                                    ("Select quote_ident($1), quote_ident($2)", &[table_name.into(), column_name.into()])
+                                                                    .unwrap() else{
+                                                                         pgrx::error!("Failed to quote identifiers");
+                                                                    };
+
+    let query = "Select Exists(select column_name from information_schema.columns 
+                                where table_name = $1 and column_name = $2) " ;
+
+    let column_exist = Spi::get_one_with_args::<bool>(query, 
+                                            &[table_name.into(), column_name.into()])
+                                            .unwrap()
+                                            .unwrap_or(false);
+
+    if !column_exist {
+        pgrx::error!("Column '{}' does not exist in table '{}'", column_name, table_name);
+    }
+
+    let query = format!("select id, name from {} order by {} {}", safe_table_name, safe_column_name, safe_direction);
+
+    let mut res = Vec::new();
+
+    Spi::connect(|client|  {
+        let tuples = client.select(&query, None, &[]).unwrap();
+
+        for row in tuples{
+            let id: i64 = row["id"].value()
+                            .unwrap()
+                            .unwrap();
+            let name: String = row["name"].value()
+                                    .unwrap()
+                                    .unwrap();
+            res.push((id, name));
+        }
+    });
+
+    TableIterator::new(res.into_iter())
 }
 
 
