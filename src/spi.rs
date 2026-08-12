@@ -657,6 +657,46 @@ fn pg_lab_paginated_query(table_name: &str, page: i32, page_size: i32) -> TableI
 
 }
 
+#[pg_extern]
+fn pg_lab_paginated_top_category_products(page: i32, page_size: i32) -> TableIterator<'static, (
+                                                                            name!(category, String),
+                                                                            name!(name, String),
+                                                                            name!(price, f64),
+                                                                        )>
+{
+    if page < 1 || page_size < 1 {
+       pgrx::error!("page and page_size must be positive integers");
+    }
+
+    let offset: i32 = (page - 1) * page_size;
+
+    let mut result = Vec::new();
+
+    Spi::connect(|client| {
+        let max_prod_category_query = "Select category from products group by category order by count(*) DESC LIMIT 1"; 
+
+        let max_prod_category_table =  client.select(max_prod_category_query, None, &[]).unwrap();
+
+        let category: String = match max_prod_category_table.first().get::<String>(1) {
+                                                                        Ok(Some(c)) => c,
+                                                                        _ => pgrx::error!("no products found"),
+                                                                    };
+
+
+        let all_products_query = "Select category, name, price::float8 from products where category = $1 limit $2 Offset $3";
+
+        let products = client.select(all_products_query, None, &[category.into(), page_size.into(), offset.into()]).unwrap();
+
+        for prod in products{
+            let category = prod["category"].value().unwrap().unwrap();
+            let name = prod["name"].value().unwrap().unwrap();
+            let price = prod["price"].value().unwrap().unwrap_or(0.0);
+            result.push((category, name, price));
+        }
+    });
+
+    TableIterator::new(result.into_iter())
+}
 
 
 
