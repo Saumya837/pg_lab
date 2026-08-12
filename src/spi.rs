@@ -554,6 +554,50 @@ fn pg_lab_safe_order_by(table_name: &str, column_name: &str, direction: &str) ->
     TableIterator::new(res.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_multi_column_filter(table_name: &str, columns: Array<String>, values: Array<String>) -> i64 {
+
+    let safe_table  = Spi::get_one_with_args::<String>(
+        "Select quote_ident($1)", &[table_name.into()]
+    ).unwrap().unwrap();
+
+    let cols: Vec<String> = columns.iter().flatten().collect();
+    let vals: Vec<String> = values.iter().flatten().collect();
+
+    if cols.len() != vals.len() {
+        pgrx::error!("columns and values must have the same length");
+    }
+
+    let mut safe_columns: Vec<String> = Vec::new();
+
+    for col in &cols{
+        let query = "Select Exists(select column_name from information_schema.columns where table_name = $1 and column_name = $2)";
+
+        let column_exist: bool = Spi::get_one_with_args::<bool>(query, &[table_name.into(), col.clone().into()])
+                                        .unwrap()
+                                        .unwrap();
+        
+        if !column_exist {
+            pgrx::error!("Column '{}' does not exist in table '{}'", col, table_name)
+        }
+
+        let safe_col = Spi::get_one_with_args::<String>("Select quote_ident($1)", &[col.clone().into()])
+                            .unwrap()
+                            .unwrap();
+
+        safe_columns.push(safe_col);
+    }
+
+    let where_parts: Vec<String> = safe_columns.iter().enumerate().map(|(i, col)| format!("{}::text = ${}", col, i+1)).collect();
+
+    let where_clause = where_parts.join(" AND ");
+
+    let query = format!("Select count(*) from {} where {}", safe_table, where_clause);
+
+    let args: Vec<_> = vals.iter().map(|v| v.clone().into()).collect();
+
+    Spi::get_one_with_args::<i64>(&query, &args).unwrap().unwrap_or(0)
+}
 
 
 
