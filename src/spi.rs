@@ -612,6 +612,51 @@ fn pg_lab_compare_quoting(input: &str) -> String {
     format!("quote_ident: {} | quote_literal: {}", quoted_ident, quoted_literal)
 }
 
+#[pg_extern]
+fn pg_lab_paginated_query(table_name: &str, page: i32, page_size: i32) -> TableIterator<'static, (
+                                                                                        name!(id, i64),
+                                                                                        name!(name, String)     
+                                                                                    )>
+{
+
+    let table_exist_check = format!("Select Exists(select 1 from information_schema.columns where table_name = $1)");
+
+    let table_exist = Spi::get_one_with_args::<bool>(&table_exist_check, &[table_name.into()]).unwrap().unwrap_or(false);
+
+     if !table_exist{
+        pgrx::error!("Table not found in the Schema");
+    }
+
+    if page < 1 || page_size < 1 {
+       pgrx::error!("page and page_size must be positive integers");
+    }
+
+
+    let safe_table_name = Spi::get_one_with_args::<String>("Select quote_ident($1)", &[table_name.into()])
+                                                                .unwrap()
+                                                                .unwrap();
+
+    let mut result = Vec::new();
+
+    let offset: i32 = (page - 1) * page_size;
+
+    let query = format!("Select id, name from {} ORDER BY id limit $1 OFFSET $2", safe_table_name);
+
+    Spi::connect(|client| {
+        let tuples = client.select(&query, None, &[page_size.into(), offset.into()]).unwrap();
+
+        for row in tuples{
+            let id = row["id"].value().unwrap().unwrap();
+            let name = row["name"].value().unwrap().unwrap();
+
+            result.push((id, name));
+        }
+    });
+
+    TableIterator::new(result.into_iter())
+
+}
+
 
 
 
