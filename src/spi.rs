@@ -599,6 +599,18 @@ fn pg_lab_multi_column_filter(table_name: &str, columns: Array<String>, values: 
     Spi::get_one_with_args::<i64>(&query, &args).unwrap().unwrap_or(0)
 }
 
+#[pg_extern]
+fn pg_lab_compare_quoting(input: &str) -> String {
+    let quoted_ident: String = Spi::get_one_with_args::<String>(
+        "SELECT quote_ident($1)", &[input.into()]
+    ).unwrap().unwrap();
+
+    let quoted_literal: String = Spi::get_one_with_args::<String>(
+        "SELECT quote_literal($1)", &[input.into()]
+    ).unwrap().unwrap();
+
+    format!("quote_ident: {} | quote_literal: {}", quoted_ident, quoted_literal)
+}
 
 
 
