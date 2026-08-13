@@ -658,8 +658,8 @@ fn pg_lab_paginated_query(table_name: &str, page: i32, page_size: i32) -> TableI
 }
 
 #[pg_extern]
-fn pg_lab_paginated_top_category_products(page: i32, page_size: i32) -> TableIterator<'static, (
-                                                                            name!(category, String),
+fn pg_lab_paginated_top_category_products(page: i32, page_size: i32, include_null_category: bool) -> TableIterator<'static, (
+                                                                            name!(category, Option<String>),
                                                                             name!(name, String),
                                                                             name!(price, f64),
                                                                         )>
@@ -673,22 +673,31 @@ fn pg_lab_paginated_top_category_products(page: i32, page_size: i32) -> TableIte
     let mut result = Vec::new();
 
     Spi::connect(|client| {
-        let max_prod_category_query = "Select category from products group by category order by count(*) DESC LIMIT 1"; 
+        let max_prod_category_query = "SELECT category FROM products WHERE ($1 OR category IS NOT NULL) GROUP BY category ORDER BY count(*) DESC LIMIT 1";
 
-        let max_prod_category_table =  client.select(max_prod_category_query, None, &[]).unwrap();
+        let max_prod_category_table = client.select(max_prod_category_query, None, &[include_null_category.into()]).unwrap();
 
-        let category: String = match max_prod_category_table.first().get::<String>(1) {
-                                                                        Ok(Some(c)) => c,
+        let category: Option<String> = match max_prod_category_table.first().get::<String>(1){
+                                                                        Ok(Some(c)) => Some(c),
+                                                                        Ok(None) if include_null_category => None,
                                                                         _ => pgrx::error!("no products found"),
                                                                     };
-
-
-        let all_products_query = "Select category, name, price::float8 from products where category = $1 limit $2 Offset $3";
-
-        let products = client.select(all_products_query, None, &[category.into(), page_size.into(), offset.into()]).unwrap();
+       
+        let products = match category {
+                                                Some(c) => {
+                                                    let query = "Select category, name, price::float8 from products where category = $1 Order by price DESC limit $2 Offset $3";
+                                                    let result = client.select(query, None, &[c.clone().into(), page_size.into(), offset.into()]).unwrap();
+                                                    result
+                                                }
+                                                None => {
+                                                    let query = "SELECT category, name, price::float8 FROM products WHERE category IS NULL ORDER BY price DESC LIMIT $1 OFFSET $2";
+                                                    let result = client.select(query, None, &[page_size.into(), offset.into()]).unwrap();
+                                                    result
+                                                }
+                                            };
 
         for prod in products{
-            let category = prod["category"].value().unwrap().unwrap();
+            let category:Option<String> = prod["category"].value().unwrap();
             let name = prod["name"].value().unwrap().unwrap();
             let price = prod["price"].value().unwrap().unwrap_or(0.0);
             result.push((category, name, price));
