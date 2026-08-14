@@ -707,6 +707,73 @@ fn pg_lab_paginated_top_category_products(page: i32, page_size: i32, include_nul
     TableIterator::new(result.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_orders_with_person_manual() -> TableIterator<'static, (
+                                                                        name!(order_id, i64),
+                                                                        name!(person_name, String),
+                                                                        name!(product_id, i64),
+                                                                        name!(status, String),
+                                                                    )>
+{
+    let mut result = Vec::new();
+
+    let order_query = "select id, person_id, product_id, status from orders";
+
+    Spi::connect(|client| {
+        let orders_det = client.select(order_query, None, &[]).unwrap();
+
+        for order in orders_det {
+            let order_id:i64 = order["id"].value().unwrap().unwrap();
+            let product_id: i64 = order["product_id"].value().unwrap().unwrap();
+            let person_id: i64 = order["person_id"].value().unwrap().unwrap();
+            let status:String = order["status"].value().unwrap().unwrap();
+
+            let people_det_query = "select name from people where id = $1";
+
+            let name_table = client.select(people_det_query, None, &[person_id.into()]).unwrap();
+
+            let name: String =  match name_table.first().get::<String>(1){
+                                                                            Ok(Some(n)) => n,
+                                                                            _ => "no name".to_string(),
+                                                                        };
+
+            result.push((order_id, name, product_id, status))
+        }
+
+    });
+
+    TableIterator::new(result.into_iter())
+}
+
+#[pg_extern]
+fn pg_lab_orders_with_person_joined() -> TableIterator<'static, (
+                                                                        name!(order_id, i64),
+                                                                        name!(person_name, String),
+                                                                        name!(product_id, i64),
+                                                                        name!(status, String),
+                                                                    )>
+{
+    let mut result = Vec::new();
+
+    let order_person_det_query = "SELECT o.id, p.name, o.product_id, o.status 
+                                    FROM orders o JOIN people p ON o.person_id = p.id";
+
+    Spi::connect(|client| {
+        let orders_det = client.select(order_person_det_query, None, &[]).unwrap();
+
+        for order in orders_det {
+            let order_id:i64 = order["id"].value().unwrap().unwrap();
+            let product_id: i64 = order["product_id"].value().unwrap().unwrap();
+            let name: String = order["name"].value().unwrap().unwrap();
+            let status:String = order["status"].value().unwrap().unwrap();
+
+            result.push((order_id, name, product_id, status))
+        }
+
+    });
+
+    TableIterator::new(result.into_iter())
+}
 
 
 
