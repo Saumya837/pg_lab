@@ -775,7 +775,30 @@ fn pg_lab_orders_with_person_joined() -> TableIterator<'static, (
     TableIterator::new(result.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_generic_row_to_json(table_name: &str, row_id: i64) -> String {
 
+    //Table existence check (Phase C pattern)
+    let table_exists: bool = Spi::get_one_with_args::<bool>(
+        "Select Exists(select 1 from information_schema.tables where table_name = $1)", &[table_name.into()]
+    ).unwrap().unwrap();
+
+    if !table_exists {
+        pgrx::error!("Table '{}' does not exits", table_name);
+    }
+
+    let safe_table_name: String = Spi::get_one_with_args::<String>("Select quote_ident($1)", &[table_name.into()]).unwrap().unwrap();
+
+    let sub_query = format!("select * from {} where id = $1", safe_table_name);
+
+    let main_query = format!("Select row_to_json(t)::text from ({}) t", sub_query);
+
+    match Spi::get_one_with_args::<String>(&main_query, &[row_id.into()]){
+        Ok(Some(json)) => json,
+        Ok(None) => "null".to_string(),
+        Err(_) => "Error: row_id not present in the table".to_string()
+    }
+}
 
 
 
