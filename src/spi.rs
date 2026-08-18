@@ -801,6 +801,46 @@ fn pg_lab_generic_row_to_json(table_name: &str, row_id: i64) -> String {
 }
 
 
+#[pg_extern]
+fn pg_lab_generic_table_dump(table_name: &str, limit: i64) -> TableIterator<'static, (
+                                                                                    name!(tuple_json, String),
+                                                                                )> 
+{
+    //Table existence check (Phase C pattern)
+    let table_exists: bool = Spi::get_one_with_args::<bool>("select Exists(Select 1 from information_schema.tables where table_name = $1)",
+                                             &[table_name.into()]).unwrap().unwrap_or(false);
+
+    if !table_exists{
+        pgrx::error!("Table '{}' does not exits", table_name);
+    }
+    
+    
+
+    let safe_table_name: String = Spi::get_one_with_args::<String>("Select quote_ident($1)",
+                                                                         &[table_name.into()])
+                                                                         .unwrap()
+                                                                         .unwrap();
+    let mut result = Vec::new();
+
+    Spi::connect(|client| {
+        let sub_query = format!("select * from {}",  safe_table_name);
+
+        let main_query = format!("select row_to_json(t)::text as contents from ({}) t limit $1", sub_query);
+
+        let tuples = client.select(&main_query, None, &[limit.into()]).unwrap();
+
+        for row in tuples{
+            let content:String = row["contents"].value().unwrap().unwrap();
+            result.push((content,));
+        }
+    });
+
+    TableIterator::new(result.into_iter())
+}
+
+
+
+
 
 
 
