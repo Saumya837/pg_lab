@@ -838,6 +838,55 @@ fn pg_lab_generic_table_dump(table_name: &str, limit: i64) -> TableIterator<'sta
     TableIterator::new(result.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_pivot_count(table_name: &str, group_col: &str) -> TableIterator<'static, (
+                                                                        name!(group_value, String),
+                                                                        name!(row_count, i64),
+                                                                    )>
+{
+    // Step 1: table existence check
+    let table_exists: bool = Spi::get_one_with_args::<bool> ("Select Exists(Select 1 From information_schema.tables where table_name = $1)", 
+                                                            &[table_name.into()]).unwrap().unwrap_or(false);
+
+    if !table_exists{
+        pgrx::error!("Table '{}' does not exist", table_name);
+    }
+
+    // Step 2: column existence check
+
+    let col_exists: bool = Spi::get_one_with_args("Select Exists(Select 1 From information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), group_col.into()])
+                                            .unwrap().unwrap_or(false);
+
+    if !col_exists{
+        pgrx::error!("Column '{}' does not exist", table_name);
+    }
+
+    let (Some(safe_table), Some(safe_col)) = 
+        Spi::get_two_with_args::<String, String>("Select quote_ident($1), quote_ident($2)", &[table_name.into(), group_col.into()])
+        .unwrap() else{
+            pgrx::error!("Failed to quote identifier");
+        };
+    
+    let query = format!("SELECT {}::text as group_value, count(*) as row_count 
+    from {} Group by {} ORDER BY row_count DESC",
+    safe_col, safe_table, safe_col);
+
+    let mut result = Vec::new();
+
+    Spi::connect(|client| {
+        let tuples = client.select(&query, None, &[]).unwrap();
+        
+        for row in tuples{
+            let group_value:String = row["group_value"].value().unwrap().unwrap_or_else(|| "NULL".to_string());
+            let row_count: i64 = row["row_count"].value().unwrap().unwrap();
+            
+            result.push((group_value, row_count));
+        };
+    });
+
+    TableIterator::new(result.into_iter())
+
+}
 
 
 
