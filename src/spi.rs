@@ -854,7 +854,7 @@ fn pg_lab_pivot_count(table_name: &str, group_col: &str) -> TableIterator<'stati
 
     // Step 2: column existence check
 
-    let col_exists: bool = Spi::get_one_with_args("Select Exists(Select 1 From information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), group_col.into()])
+    let col_exists: bool = Spi::get_one_with_args::<bool>("Select Exists(Select 1 From information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), group_col.into()])
                                             .unwrap().unwrap_or(false);
 
     if !col_exists{
@@ -862,7 +862,7 @@ fn pg_lab_pivot_count(table_name: &str, group_col: &str) -> TableIterator<'stati
     }
 
     let (Some(safe_table), Some(safe_col)) = 
-        Spi::get_two_with_args::<String, String>("Select quote_ident($1), quote_ident($2)", &[table_name.into(), group_col.into()])
+        Spi::get_two_with_args::<String, String>("Select quote_ident($1), quote_ident($2), quote_ident($3)", &[table_name.into(), group_col.into()])
         .unwrap() else{
             pgrx::error!("Failed to quote identifier");
         };
@@ -886,6 +886,61 @@ fn pg_lab_pivot_count(table_name: &str, group_col: &str) -> TableIterator<'stati
 
     TableIterator::new(result.into_iter())
 
+}
+
+#[pg_extern]
+fn pg_lab_pivot_count_filtered(
+    table_name: &str, group_col: &str, filter_col: &str, 
+    filter_operator: &str, filter_value: &str) -> TableIterator<'static, (name!(group_value, String), name!(row_count, i64))> 
+{
+    let table_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 From information_schema.tables where table_name = $1)",
+                                                            &[table_name.into()]).unwrap().unwrap_or(false);
+
+    if !table_exists{
+        pgrx::error!("Table '{}' does not exists", table_name);
+    }
+
+    let group_col_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)",
+                                                                 &[table_name.into(), group_col.into()]).unwrap().unwrap_or(false);
+
+    if !group_col_exists{
+        pgrx::error!("Group by Column '{}' does not exists", group_col);
+    }
+
+    let filter_col_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", 
+                                                                                            &[table_name.into(), filter_col.into()]).unwrap().unwrap_or(false);
+    
+    if !filter_col_exists{
+        pgrx::error!("Filter Column '{}' does not exists", filter_col);
+    }
+
+    let (Some(safe_table), Some(safe_group_col), Some(safe_filter_col)) = 
+        Spi::get_three_with_args::<String, String, String>("Select quote_ident($1), quote_ident($2), quote_ident($3)", &[table_name.into(), group_col.into(), filter_col.into()])
+        .unwrap() else{
+            pgrx::error!("Failed to quote identifier");
+        };
+
+    let safe_operator = match filter_operator{
+                                        "=" | ">" | "<" |">=" | "<=" | "!=" => filter_operator,
+                                        _ => pgrx::error!("Invalid operator: {}", filter_operator),
+                                    };
+
+    let mut result = Vec::new();
+
+    let query = format!("Select {}::text as group_col, count(*) as row_count from {} where {}::text {} $1 group by {}  ", safe_group_col, safe_table, safe_filter_col, safe_operator, safe_group_col);
+
+    Spi::connect(|client| {
+        let tuple = client.select(&query, None, &[filter_value.into()]).unwrap();
+
+        for row in tuple{
+            let group_col = row["group_col"].value().unwrap().unwrap_or_else(|| "NULL".to_string());
+            let row_count = row["row_count"].value().unwrap().unwrap();
+
+            result.push((group_col, row_count));
+        }
+    });
+
+    TableIterator::new(result.into_iter())
 }
 
 
