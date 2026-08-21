@@ -1,5 +1,5 @@
 use std::{sync::OnceLock};
-use pgrx::{prelude::*, spi::SpiError};
+use pgrx::{pg_sys::quote_ident, prelude::*, spi::SpiError};
 
 #[pg_extern]
 fn pg_lab_row_count(table_name : &str) -> Option<i64> {
@@ -927,7 +927,8 @@ fn pg_lab_pivot_count_filtered(
 
     let mut result = Vec::new();
 
-    let query = format!("Select {}::text as group_col, count(*) as row_count from {} where {}::text {} $1 group by {}  ", safe_group_col, safe_table, safe_filter_col, safe_operator, safe_group_col);
+    let query = format!("Select {}::text as group_col, count(*) as row_count from {} where {}::text {} $1 group by {}",
+                                    safe_group_col, safe_table, safe_filter_col, safe_operator, safe_group_col);
 
     Spi::connect(|client| {
         let tuple = client.select(&query, None, &[filter_value.into()]).unwrap();
@@ -939,6 +940,65 @@ fn pg_lab_pivot_count_filtered(
             result.push((group_col, row_count));
         }
     });
+
+    TableIterator::new(result.into_iter())
+}
+
+#[pg_extern]
+fn pg_lab_safe_batch_lookup(table_name:  &str, id_column: &str, ids: Array<i64>) -> TableIterator<'static, (
+                                                                                                    name!(row_json, String),
+                                                                                                )>
+{
+    let table_exists: bool = Spi::get_one_with_args::<bool>("Select Exists(Select 1 From Information_schema.Tables where table_name = $1)",
+                                                             &[table_name.into()]).unwrap().unwrap_or(false);
+
+    if !table_exists{
+        pgrx::error!("Table '{}' does not exists", table_name);
+    }
+
+    let column_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from Information_schema.columns where table_name = $1 and column_name = $2)", 
+                                                                    &[table_name.into(), id_column.into()]
+                                                                ).unwrap().unwrap_or(false);
+    
+    if !column_exists{
+        pgrx::error!("Column '{}' does not exists", id_column);
+    }
+
+    let (Some(safe_table_name), Some(safe_id_cols)) = Spi::get_two_with_args::<String, String>
+                                                    ("Select quote_ident($1), quote_ident($2)",
+                                                     &[table_name.into(), id_column.into()]).unwrap() 
+                                                     else{
+                                                        pgrx::error!("Failed to quote_identifier");
+                                                     };
+
+    let mut result = Vec::new();
+
+    let id_vec: Vec<i64> = ids.iter().flatten().collect();
+
+    if id_vec.is_empty(){
+        pgrx::error!("ids array cannot be empty");
+    }
+
+    let placeholder: Vec<String> = (1..=id_vec.len()).map(|i| format!("${}", i)).collect(); 
+    let in_clause = placeholder.join(", ");
+
+    // id_vec ko args array mein convert karo
+    let args: Vec<_> = id_vec.iter().map(|id| (*id).into()).collect();
+
+
+    let sub_query = format!("Select * From {} where {} in ({})", table_name, id_column, in_clause);
+
+    let main_query = format!("Select row_to_json(t)::text as contents from ({}) t", sub_query);
+
+    Spi::connect(|client |{
+        let tuples = client.select(&main_query, None, &args).unwrap();
+
+        for row in tuples{
+            let res: String = row["contents"].value().unwrap().unwrap();
+            result.push((res, ));
+        }
+    });
+                                                             
 
     TableIterator::new(result.into_iter())
 }
