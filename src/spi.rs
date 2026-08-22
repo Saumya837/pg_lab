@@ -998,11 +998,71 @@ fn pg_lab_safe_batch_lookup(table_name:  &str, id_column: &str, ids: Array<i64>)
             result.push((res, ));
         }
     });
-                                                             
-
+                                                            
     TableIterator::new(result.into_iter())
 }
 
+#[pg_extern]
+fn pg_lab_nullable_aggregate(table_name : &str, col_name: &str) -> TableIterator<'static, (
+                                                            name!(count_total, i64),
+                                                            name!(count_non_null, i64),
+                                                            name!(sum_if_numeric, Option<f64>),
+                                                        )> 
+{
+    //Step1: existence Check
+    let table_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.tables where table_name = $1)", 
+                                                            &[table_name.into()])
+                                                            .unwrap()
+                                                            .unwrap_or(false);
+    if !table_exists{
+        pgrx::error!("Table '{}' doesn't exits", table_name);
+    }
+
+    let col_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", 
+                                                            &[table_name.into(), col_name.into()])
+                                                            .unwrap()
+                                                            .unwrap_or(false);
+
+    if !col_exists{
+        pgrx::error!("Column '{}' doesn't exits", col_name);
+    }
+
+    let (Some(safe_table_name), Some(safe_col_name)) = Spi::get_two_with_args::<String, String>("Select quote_ident($1), quote_ident($2)", 
+                                                                    &[table_name.into(), col_name.into()]).unwrap() else{
+                                                                        pgrx::error!("Failed to quote identifier");
+                                                                    };
+
+    //Step2: column data_type check information_schema
+    let data_type: String = Spi::get_one_with_args::<String>("Select data_type from information_schema.columns 
+                                                                    WHERE table_name = $1 and column_name = $2", 
+                                                            &[table_name.into(), col_name.into()]).unwrap().unwrap_or_else(|| "unknown".to_string());
+    
+    let is_numeric = matches!(data_type.as_str(), "integer" | "bigint" | "numeric" | "real" | "double precision" | "smallint");
+
+    let query = if is_numeric {
+        format!("SELECT count(*) as total, count({col}) AS non_null, sum({col}::float8) AS total_sum FROM {table}",
+                col = safe_col_name, table = safe_table_name)
+    } else {
+        format!("SELECT count(*) as total, count({col}) AS non_null, NULL::float8 as total_sum from {table}",
+                col = safe_col_name, table = safe_table_name)
+    };
+
+    let mut result = Vec::new();
+
+    Spi::connect(|client| {
+        let tuples = client.select(&query, None, &[]).unwrap();
+
+        for row in tuples {
+            let total: i64 = row["total"].value().unwrap().unwrap();
+            let non_null: i64 = row["non_null"].value().unwrap().unwrap();
+            let total_sum: Option<f64> = row["total_sum"].value().unwrap();
+
+            result.push((total, non_null, total_sum));
+        }
+    });
+
+    TableIterator::new(result.into_iter())
+}
 
 
 
