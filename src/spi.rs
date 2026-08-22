@@ -986,7 +986,7 @@ fn pg_lab_safe_batch_lookup(table_name:  &str, id_column: &str, ids: Array<i64>)
     let args: Vec<_> = id_vec.iter().map(|id| (*id).into()).collect();
 
 
-    let sub_query = format!("Select * From {} where {} in ({})", table_name, id_column, in_clause);
+    let sub_query = format!("Select * From {} where {} in ({})", safe_table_name, safe_id_cols, in_clause);
 
     let main_query = format!("Select row_to_json(t)::text as contents from ({}) t", sub_query);
 
@@ -1062,6 +1062,40 @@ fn pg_lab_nullable_aggregate(table_name : &str, col_name: &str) -> TableIterator
     });
 
     TableIterator::new(result.into_iter())
+}
+
+#[pg_extern]
+fn pg_lab_array_null_report(values: Array<i64>) -> TableIterator<'static, (
+                                                                            name!(total, i64),
+                                                                            name!(non_null, i64),
+                                                                            name!(null_count, i64),
+                                                                            name!(sum_of_non_null, i64)
+                                                                        )> 
+{
+
+    let mut result = Vec::new();
+
+    let mut null_count = 0;
+    let mut non_null_count = 0;
+
+    for item in values.iter(){
+        match item {
+            Some(i) => { 
+                                    non_null_count += 1;
+                                }
+            None => {
+                null_count +=  1;
+            }
+        }
+    }
+
+    let sum_of_non_null:i64 = values.iter().flatten().sum();
+    let total = values.len() as i64;
+
+    result.push((total, non_null_count, null_count, sum_of_non_null));
+
+    TableIterator::new(result.into_iter())
+
 }
 
 
