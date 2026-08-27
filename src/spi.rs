@@ -1098,6 +1098,30 @@ fn pg_lab_array_null_report(values: Array<i64>) -> TableIterator<'static, (
 
 }
 
+#[pg_extern]
+fn pg_lab_safe_column_json(table_name: &str, col: &str) -> String {
+    let (Some(safe_table), Some(safe_col)) = Spi::get_two_with_args::<String, String>(
+                                                                                            "Select quote_ident($1), quote_ident($2)", 
+                                                                                            &[table_name.into(), col.into()]
+                                                                                        ).unwrap() else{
+                                                                                            pgrx::error!("Failed to quote identifier");
+                                                                                        };
+    // Column ka actual data_type check karo
+    let data_type: String = Spi::get_one_with_args::<String>(
+        "SELECT data_type FROM information_schema.columns WHERE table_name = $1 AND column_name = $2",
+        &[table_name.into(), col.into()]
+    ).unwrap().unwrap_or_else(|| "unknown".to_string());
+
+    let query = if data_type == "json" || data_type =="jsonb" {
+        format!("SELECT json_agg({})::text FROM {}", safe_col, safe_table)
+    }
+    else{
+        format!("SELECT json_agg(to_json({}))::text FROM {}", safe_col, safe_table)
+    };
+
+    Spi::get_one::<String>(&query).unwrap().unwrap_or_else(|| "[]".to_string())
+}
+
 
 
 
