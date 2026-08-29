@@ -1,4 +1,4 @@
-use std::{sync::OnceLock};
+use std::{any::Any, sync::OnceLock};
 use pgrx::{pg_sys::quote_ident, prelude::*, spi::SpiError};
 
 #[pg_extern]
@@ -1121,6 +1121,52 @@ fn pg_lab_safe_column_json(table_name: &str, col: &str) -> String {
 
     Spi::get_one::<String>(&query).unwrap().unwrap_or_else(|| "[]".to_string())
 }
+
+#[pg_extern]
+fn pg_lab_compare_numeric_columns(table_name: &str, col_a: &str, col_b: &str, row_id: i64) -> String {
+
+    let table_exists: bool = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.tables where table_name = $1)", &[table_name.into()]).unwrap().unwrap_or(false);
+
+    if !table_exists {
+        pgrx::error!("Table {} not found", table_name);
+    }
+
+    let col_a_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), col_a.into()]).unwrap().unwrap_or(false);
+
+    if !col_a_exists {
+       pgrx::error!("Column {} not found", col_a);
+    }
+
+    let col_b_exists = Spi::get_one_with_args::<bool>("Select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), col_b.into()]).unwrap().unwrap_or(false);
+
+    if !col_b_exists {
+       pgrx::error!("Column {} not found", col_b);
+    }
+
+    let (Some(safe_table), Some(safe_col_a), Some(safe_col_b)) = Spi::get_three_with_args::<String, String, String>("Select quote_ident($1), quote_ident($2), quote_ident($3)", &[table_name.into(), col_a.into(), col_b.into()])
+                                                                            .unwrap() else {
+                                                                                pgrx::error!("Failed to quote identifier");
+                                                                            };
+
+    let query = format!(
+                "Select {}::numeric, {}::numeric from {} where id = $1",
+                safe_col_a, safe_col_b, safe_table
+    );
+
+
+    let (val_a, val_b): (Option<AnyNumeric>, Option<AnyNumeric>) = 
+                            Spi::get_two_with_args(&query, &[row_id.into()]).unwrap();
+
+    match (val_a, val_b) {
+        (Some(a), Some(b)) => {
+            let diff = a.clone() - b.clone();
+            format!("{} vs {} -> diffrence: {}", a, b, diff)
+        }
+        _ => "one or both values are NULL".to_string(),
+    }
+}
+
+
 
 
 
