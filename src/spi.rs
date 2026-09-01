@@ -1166,6 +1166,23 @@ fn pg_lab_compare_numeric_columns(table_name: &str, col_a: &str, col_b: &str, ro
     }
 }
 
+use pgrx::Json;
+
+#[pg_extern]
+fn pg_lab_query_plan_type(table_name: &str, col_a: &str, col_b: &str, row_id: i64) -> String {
+
+    let (Some(safe_table), Some(safe_col_a), Some(safe_col_b)) = Spi::get_three_with_args::<String, String, String>
+                                                                            ("Select quote_ident($1), quote_ident($2), quote_ident($3)",
+                                                                                    &[table_name.into(), col_a.into(), col_b.into()]).unwrap() else{
+                                                                                        pgrx::error!("Failed to quote identifier");
+                                                                                    };
+    
+    let query = format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) Select {}::text, {}::text from {} where id = $1", safe_col_a, safe_col_b, safe_table);
+
+    let result: Json  =  Spi::get_one_with_args::<Json>(&query, &[row_id.into()]).unwrap().unwrap();
+    
+    result.0.to_string()
+}
 
 
 
