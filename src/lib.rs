@@ -9,3 +9,4 @@ mod triggers;
 mod complex_type;
 mod toast_type;
 mod gist;
+mod explain_analyze;
