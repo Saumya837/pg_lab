@@ -67,12 +67,6 @@ fn extract_scan_node(node: &serde_json::Value,
                      depth: i32,
                      results: &mut Vec<(i32, String, Option<String>, f64, i64)>)
 {
-    if let Some(children) = node["Plans"].as_array() {
-        for child in children {
-            extract_scan_node(child, depth + 1, results);
-        }
-    }
-
     let node_type: String = node["Node Type"].as_str().unwrap_or("Unknown").to_string();
 
     let relation_name: Option<String> = node["Relation Name"].as_str().map(|s| s.to_string());
@@ -82,6 +76,12 @@ fn extract_scan_node(node: &serde_json::Value,
     let actual_rows: i64 = node["Actual Rows"].as_i64().unwrap_or(0);
 
     results.push((depth, node_type, relation_name, actual_time_ms, actual_rows));
+
+    if let Some(children) = node["Plans"].as_array() {
+        for child in children {
+            extract_scan_node(child, depth + 1, results);
+        }
+    }
 }
 
 #[pg_extern]
@@ -104,6 +104,50 @@ fn pg_lab_scan_tree(sql: &str) -> TableIterator<'static, (
     extract_scan_node(root_plan, 0, &mut results);
 
     TableIterator::new(results.into_iter())
+}
+
+fn find_max_time_node(node: &serde_json::Value, current_max: &mut (String, f64)){
+
+    let node_type: String = node["Node Type"].as_str().unwrap_or("Unknown").to_string();
+
+    let total_time: f64 = node["Actual Total Time"].as_f64().unwrap_or(0.0);
+
+    let children_time: f64 = match node["Plans"].as_array() {
+        Some(children) => children.iter()
+            .map(|child| child["Actual Total Time"].as_f64().unwrap_or(0.0))
+            .sum(),
+        None => 0.0,  // leaf node — koi children nahi, isliye sum = 0
+    };
+
+
+    let self_time = total_time - children_time;
+
+
+    if self_time > current_max.1 {
+        *current_max = (node_type, self_time);
+    }
+
+    if let Some(children) = node["Plans"].as_array(){
+        for child in children {
+            find_max_time_node(child, current_max);
+        }
+    }
+}
+
+#[pg_extern]
+fn pg_lab_find_bottleneck(sql: &str) -> String 
+{
+    let explain_analyze_query = format!("Explain (Analyze, Buffers, Format JSON) {}", sql);
+
+    let result : Json = Spi::get_one::<Json>(&explain_analyze_query).unwrap().unwrap();
+
+    let root_plan = &result.0[0]["Plan"];
+
+    let mut curr_max= ("".to_string(), 0.0);
+
+    find_max_time_node(root_plan, &mut curr_max);
+
+    format!("The node with the highest execution time is: {} with time: {} ms", curr_max.0, curr_max.1)
 }
 
 
