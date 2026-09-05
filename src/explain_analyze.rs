@@ -106,11 +106,10 @@ fn pg_lab_scan_tree(sql: &str) -> TableIterator<'static, (
     TableIterator::new(results.into_iter())
 }
 
-fn find_max_time_node(node: &serde_json::Value, current_max: &mut (String, f64)){
-
+fn find_max_time_node(node: &serde_json::Value, current_max: &mut (String, Option<String>, f64)){
     let node_type: String = node["Node Type"].as_str().unwrap_or("Unknown").to_string();
-
     let total_time: f64 = node["Actual Total Time"].as_f64().unwrap_or(0.0);
+    let relation_name: Option<String> = node["Relation Name"].as_str().map(|s| s.to_string());
 
     let children_time: f64 = match node["Plans"].as_array() {
         Some(children) => children.iter()
@@ -119,12 +118,9 @@ fn find_max_time_node(node: &serde_json::Value, current_max: &mut (String, f64))
         None => 0.0,  // leaf node — koi children nahi, isliye sum = 0
     };
 
-
     let self_time = total_time - children_time;
-
-
-    if self_time > current_max.1 {
-        *current_max = (node_type, self_time);
+    if self_time > current_max.2 {
+        *current_max = (node_type, relation_name, self_time);
     }
 
     if let Some(children) = node["Plans"].as_array(){
@@ -138,17 +134,21 @@ fn find_max_time_node(node: &serde_json::Value, current_max: &mut (String, f64))
 fn pg_lab_find_bottleneck(sql: &str) -> String 
 {
     let explain_analyze_query = format!("Explain (Analyze, Buffers, Format JSON) {}", sql);
-
     let result : Json = Spi::get_one::<Json>(&explain_analyze_query).unwrap().unwrap();
-
     let root_plan = &result.0[0]["Plan"];
-
-    let mut curr_max= ("".to_string(), 0.0);
+    let mut curr_max= ("".to_string(), Some("".to_string()), 0.0);
 
     find_max_time_node(root_plan, &mut curr_max);
-
-    format!("The node with the highest execution time is: {} with time: {} ms", curr_max.0, curr_max.1)
+    format!("The bottleneck is: {} (relation: {}) with self-time: {}", curr_max.0, curr_max.1.unwrap_or("N/A".to_string()), curr_max.2)
 }
+
+
+
+
+
+
+
+
 
 
 
