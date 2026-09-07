@@ -2,17 +2,30 @@ use pgrx::prelude::*;
 use pgrx::Json;
 
 #[pg_extern]
-fn pg_lab_query_plan_type(table_name: &str, col_a: &str, col_b: &str, row_id: i64) -> String {
+fn pg_lab_query_plan_type(table_name: &str, col_a: &str, col_b: &str, row_id: default!(Option<i64>, "NULL"),) -> String {
 
     let (Some(safe_table), Some(safe_col_a), Some(safe_col_b)) = Spi::get_three_with_args::<String, String, String>
                                                                             ("Select quote_ident($1), quote_ident($2), quote_ident($3)",
                                                                                     &[table_name.into(), col_a.into(), col_b.into()]).unwrap() else{
                                                                                         pgrx::error!("Failed to quote identifier");
                                                                                     };
-    
-    let query = format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) Select {}::text, {}::text from {} where id = $1", safe_col_a, safe_col_b, safe_table);
 
-    let result: Json  =  Spi::get_one_with_args::<Json>(&query, &[row_id.into()]).unwrap().unwrap();
+    let sub_query: String = format!("Select {}::text, {}::text from {}", safe_col_a, safe_col_b, safe_table);
+
+    let result: Json  =  match row_id{
+        Some(row) => {
+                         let sql = format!("{} WHERE id = $1", sub_query);
+                        let query = format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {}", sql);
+                        Spi::get_one_with_args::<Json>(&query, &[row.into()]).unwrap().unwrap()
+                    } ,
+         
+        None => {
+                                let sql = format!("{}",sub_query);
+                                let query = format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {}", sql);
+                                Spi::get_one_with_args::<Json>(&query, &[]).unwrap().unwrap()
+                            }
+    };
+   
 
     result.0.to_string()
 }
@@ -186,6 +199,21 @@ fn pg_lab_suggest_index(table_name: &str, column_name: &str) -> String {
         format!("Low selectivity ({}) -- index on {} likely won't help much", selectivity, column_name)
     }
 }
+
+// #[pg_extern]
+// fn pg_lab_cache_hit_ratio(sql: &str) -> String {
+
+//     let query = format!("Explain (Analyze, BUFFERS, FORMAT JSON) ({}) ", sql);
+
+//     let result: Json = Spi::get_one_with_args::<Json>(&query, &[]).unwrap().unwrap();
+
+
+//     let node = result.0[0]["Plan"];
+
+
+//     "".to_string()
+// }
+
 
 
 
