@@ -108,10 +108,8 @@ fn pg_lab_scan_tree(sql: &str) -> TableIterator<'static, (
 
 fn find_children_time(node: &serde_json::Value) -> f64 {
     let child_time = match node["Plans"].as_array(){
-        Some(children) => children.iter()
-            .map(|child| child["Actual Total Time"].as_f64().unwrap_or(0.0))
-            .sum(),
-        None => 0.0,
+       Some(children) => children.iter().map(|child| child["Actual Total Time"].as_f64().unwrap_or(0.0)).sum(),
+       None => 0.0
     };
     child_time
 }
@@ -130,13 +128,11 @@ fn find_max_time_node(node: &serde_json::Value, current_max: &mut (String, Optio
         for child in children {
             let child_relation = find_max_time_node(child, current_max);
             if best_child_relation.is_none() {
-                best_child_relation = child_relation;  // pehla mila hua le lo
+                best_child_relation = child_relation; 
             }
         }
     }
 
-    // Agar current node ka apna relation hai, wahi use karo.
-    // Warna, children se mila hua use karo.
     let effective_relation = own_relation.or(best_child_relation);
 
     if self_time > current_max.2 {
@@ -157,6 +153,43 @@ fn pg_lab_find_bottleneck(sql: &str) -> String
     find_max_time_node(root_plan, &mut curr_max);
     format!("The bottleneck is: {} (relation: {}) with self-time: {}", curr_max.0,  curr_max.1.unwrap_or("N/A".to_string()), curr_max.2)
 }
+
+#[pg_extern]
+fn pg_lab_suggest_index(table_name: &str, column_name: &str) -> String {
+
+   let table_exists= Spi::get_one_with_args::<bool>( "select Exists(Select 1 from information_schema.tables where table_name = $1)", &[table_name.into()]).unwrap().unwrap_or(false);
+
+   if !table_exists {
+        pgrx::error!("table {} doen't exist", table_name);
+   }
+
+   let col_exists = Spi::get_one_with_args::<bool>( "select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), column_name.into()]).unwrap().unwrap_or(false);
+
+    if !col_exists {
+        pgrx::error!("column {} doen't exist", column_name);
+    }
+
+   let (Some(safe_table_name), Some(safe_column_name))= 
+                                                Spi::get_two_with_args::<String, String>("Select quote_ident($1), quote_ident($2)", 
+                                                    &[table_name.into(), column_name.into()]).unwrap() 
+                                                    else{
+                                                            pgrx::error!("Failed to quote identifiers");
+                                                        };
+
+    let query = format!("Select count(DISTINCT {})::float8 / count(*)::float8 from {}", safe_column_name, safe_table_name);
+
+    let selectivity = Spi::get_one_with_args::<f64>(&query, &[]).unwrap().unwrap();
+
+    if selectivity > 0.3 {
+        format!("High selectivity ({}) -- index on {} likely helpful", selectivity, column_name)
+    } else {
+        format!("Low selectivity ({}) -- index on {} likely won't help much", selectivity, column_name)
+    }
+}
+
+
+
+
 
 
 

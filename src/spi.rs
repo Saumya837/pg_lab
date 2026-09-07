@@ -1080,7 +1080,7 @@ fn pg_lab_array_null_report(values: Array<i64>) -> TableIterator<'static, (
 
     for item in values.iter(){
         match item {
-            Some(i) => { 
+            Some(_) => { 
                                     non_null_count += 1;
                                 }
             None => {
