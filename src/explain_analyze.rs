@@ -14,7 +14,7 @@ fn pg_lab_query_plan_type(table_name: &str, col_a: &str, col_b: &str, row_id: de
 
     let result: Json  =  match row_id{
         Some(row) => {
-                         let sql = format!("{} WHERE id = $1", sub_query);
+                        let sql = format!("{} WHERE id = $1", sub_query);
                         let query = format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {}", sql);
                         Spi::get_one_with_args::<Json>(&query, &[row.into()]).unwrap().unwrap()
                     } ,
@@ -25,8 +25,6 @@ fn pg_lab_query_plan_type(table_name: &str, col_a: &str, col_b: &str, row_id: de
                                 Spi::get_one_with_args::<Json>(&query, &[]).unwrap().unwrap()
                             }
     };
-   
-
     result.0.to_string()
 }
 
@@ -176,7 +174,7 @@ fn pg_lab_suggest_index(table_name: &str, column_name: &str) -> String {
         pgrx::error!("table {} doen't exist", table_name);
    }
 
-   let col_exists = Spi::get_one_with_args::<bool>( "select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), column_name.into()]).unwrap().unwrap_or(false);
+   let col_exists = Spi::get_one_with_args::<bool>("select Exists(Select 1 from information_schema.columns where table_name = $1 and column_name = $2)", &[table_name.into(), column_name.into()]).unwrap().unwrap_or(false);
 
     if !col_exists {
         pgrx::error!("column {} doen't exist", column_name);
@@ -200,19 +198,28 @@ fn pg_lab_suggest_index(table_name: &str, column_name: &str) -> String {
     }
 }
 
-// #[pg_extern]
-// fn pg_lab_cache_hit_ratio(sql: &str) -> String {
+#[pg_extern]
+fn pg_lab_cache_hit_ratio(sql: &str) -> String {
 
-//     let query = format!("Explain (Analyze, BUFFERS, FORMAT JSON) ({}) ", sql);
+    let query = format!("Explain (Analyze, BUFFERS, FORMAT JSON) ({}) ", sql);
 
-//     let result: Json = Spi::get_one_with_args::<Json>(&query, &[]).unwrap().unwrap();
-
-
-//     let node = result.0[0]["Plan"];
+    let result: Json = Spi::get_one_with_args::<Json>(&query, &[]).unwrap().unwrap();
 
 
-//     "".to_string()
-// }
+    let node = &result.0[0]["Plan"];
+
+    let shared_hit = node["Shared Hit Blocks"].as_f64().unwrap_or(0.0);
+    let shared_read = node["Shared Read Blocks"].as_f64().unwrap_or(0.0);
+    let total = shared_hit + shared_read;
+
+    let hit_ratio: f64 = if total == 0.0 { 1.0 } else { shared_hit / total };
+
+    if hit_ratio > 0.9 {
+        format!("Hot cache: {:.1}% hit ({} hit, {} read)", hit_ratio * 100.0, shared_hit, shared_read)
+    } else{
+        format!("Cold cache: {:.1}% hit ({} hit, {} read) -- consider warming or checking shared_buffers", hit_ratio * 100.0, shared_hit, shared_read)
+    }
+}
 
 
 
