@@ -1,6 +1,9 @@
 use pgrx::prelude::*;
+use pgrx::{pg_shmem_init, PgSharedMemoryInitialization};
 pg_module_magic!();
 
+
+mod shmemcounter;
 mod text;
 mod math;
 mod iter;
@@ -10,3 +13,11 @@ mod complex_type;
 mod toast_type;
 mod gist;
 mod explain_analyze;
+
+use shmemcounter::RECON_COUNTER;  // <- ye line add karo, path ko simple naam mein la do
+
+#[pg_guard]
+pub extern "C-unwind" fn _PG_init() {
+    pg_shmem_init!(RECON_COUNTER);
+}  
+

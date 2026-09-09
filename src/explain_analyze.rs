@@ -209,7 +209,7 @@ fn pg_lab_cache_hit_ratio(sql: &str) -> String {
     let node = &result.0[0]["Plan"];
 
     let shared_hit = node["Shared Hit Blocks"].as_f64().unwrap_or(0.0);
-    let shared_read = node["Shared Read Blocks"].as_f64().unwrap_or(0.0);
+    let shared_read = node["Sh vbnmared Read Blocks"].as_f64().unwrap_or(0.0);
     let total = shared_hit + shared_read;
 
     let hit_ratio: f64 = if total == 0.0 { 1.0 } else { shared_hit / total };
